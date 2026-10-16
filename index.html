@@ -2,8 +2,17 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Mis Finanzas</title>
+<meta name="description" content="Organiza tu dinero en alcancías con porcentajes, metas e ingresos y gastos fijos.">
+<meta name="theme-color" content="#f2f5fa">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Finanzas">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <style>
 :root{
   --bg:#f2f5fa; --surface:#ffffff; --surface2:#f6f8fc; --border:#e2e8f1; --text:#0d1a2d; --muted:#667690;
@@ -210,6 +219,63 @@ body.side-open .side-tab{right:min(var(--side-w),100vw)}
 @keyframes tin{from{opacity:0;transform:translateY(14px) scale(.96)}to{opacity:1;transform:none}}
 @media(max-width:640px){.topbar{padding:12px 16px}.page{padding:18px 16px 90px}.kpis{grid-template-columns:1fr}.two-cols{grid-template-columns:1fr}}
 @media (prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important}}
+/* ---------- v2: avisos, metas, categorías, táctil ---------- */
+.banner{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 16px;border-radius:16px;background:var(--warn-soft);color:var(--warn);font-size:14px;margin-bottom:14px;animation:rowin .3s ease}
+.banner.info{background:var(--accent-soft);color:var(--text)}
+.banner .grow{flex:1;min-width:220px}
+.banner .btns{display:flex;gap:8px;flex-wrap:wrap}
+.banner .btn{background:var(--surface);color:var(--text)}
+.banner .btn.primary{background:var(--btn);color:var(--btn-ink)}
+.goals{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:16px}
+.goal{padding:18px;display:flex;flex-direction:column;gap:11px;position:relative;overflow:hidden;transition:transform .2s}
+.goal:hover{transform:translateY(-2px)}
+.goal-top{display:flex;align-items:center;gap:8px}
+.goal-name{flex:1;font-weight:650;font-size:15.5px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.goal-nums{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
+.goal-nums b{font-size:22px;font-weight:720;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.goal-bar{height:10px;border-radius:99px;background:var(--surface2);border:1px solid var(--border);overflow:hidden}
+.goal-bar i{display:block;height:100%;border-radius:99px;background:var(--gc,var(--btn));transition:width .7s cubic-bezier(.2,.8,.2,1)}
+.goal.done .goal-bar i{background:var(--pos)}
+.goal-meta{font-size:13px;color:var(--muted);display:flex;flex-direction:column;gap:3px}
+.goal-meta b{color:var(--text)}
+.cat-list{display:flex;flex-direction:column;gap:12px}
+.cat-row{display:grid;grid-template-columns:1fr auto;gap:5px 10px;font-size:13px;align-items:baseline}
+.cat-row b{font-variant-numeric:tabular-nums;font-weight:650}
+.cat-row .bar{grid-column:1/-1;height:6px;border-radius:99px;background:var(--surface2);overflow:hidden}
+.cat-row .bar i{display:block;height:100%;border-radius:99px;transition:width .5s cubic-bezier(.2,.8,.2,1)}
+.acts{display:flex;gap:2px;flex:none}
+.mv{display:none;gap:0}
+.snaps{display:flex;flex-direction:column;gap:8px;max-height:230px;overflow:auto}
+.snap{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--border);border-radius:14px;background:var(--surface2)}
+.snap .main{flex:1;min-width:0;font-size:13px;color:var(--muted)}
+.snap .main b{display:block;font-size:14px;color:var(--text)}
+.duo{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.side-inner{padding-bottom:calc(60px + env(safe-area-inset-bottom))}
+.topbar{padding-top:calc(14px + env(safe-area-inset-top));padding-left:max(28px,env(safe-area-inset-left));padding-right:max(28px,env(safe-area-inset-right))}
+.chart .hit{touch-action:pan-y}
+@media(max-width:640px){
+  input:not(.money-in),select{font-size:16px !important}
+  .topbar{padding-left:max(14px,env(safe-area-inset-left));padding-right:max(14px,env(safe-area-inset-right))}
+  .brand{font-size:15.5px}
+  #curSel{max-width:92px;padding:8px 8px}
+  .top-actions{gap:6px}
+  .hero-left{padding:22px 20px}
+  #opForm{padding:20px}
+  .jar-val{font-size:22px}
+  .modal{padding:20px;border-radius:20px}
+  .dist-row{grid-template-columns:1fr 120px}
+  .goals,.jars{grid-template-columns:1fr}
+  .duo{grid-template-columns:1fr}
+  .row{padding:12px 14px;gap:10px}
+  .row .t{white-space:normal;overflow:visible;text-overflow:clip;word-break:break-word}
+  .row .amt{font-size:15px}
+}
+@media (hover:none) and (pointer:coarse){
+  .grip{display:none}
+  .mv{display:inline-flex}
+  .icon-btn{width:38px;height:38px}
+  .btn{min-height:42px}
+}
 </style>
 </head>
 <body>
@@ -219,15 +285,16 @@ body.side-open .side-tab{right:min(var(--side-w),100vw)}
     Mis Finanzas
   </div>
   <div class="top-actions">
+    <button class="btn sm" id="btnInstall" hidden title="Instala la app en este dispositivo">⤓ Instalar app</button>
     <select id="curSel" title="Solo cambia el formato de la moneda; no convierte los montos"></select>
-    <button class="btn ghost sm" id="btnExport" title="Descarga un archivo con todos tus datos">Exportar respaldo</button>
-    <button class="btn ghost sm" id="btnImport" title="Restaura un respaldo exportado antes">Importar</button>
+    <button class="btn ghost sm" id="btnData" title="Exportar, importar y copias automáticas">Respaldo</button>
     <input type="file" id="fileImport" accept=".json,application/json" hidden>
     <button class="icon-btn lg" id="btnTheme" title="Cambiar entre modo claro y oscuro" aria-label="Cambiar tema">☾</button>
   </div>
 </header>
 
 <div class="page" id="page">
+  <div id="updBanner"></div><div id="bkBanner"></div>
   <div class="card hero">
     <div class="hero-left">
       <span class="eyebrow">Total disponible</span>
@@ -244,6 +311,8 @@ body.side-open .side-tab{right:min(var(--side-w),100vw)}
         <div class="money"><i id="curSym">$</i><input id="amount" class="money-in" inputmode="decimal" placeholder="0"></div>
       </label>
       <label class="field" id="jarPickWrap" hidden><span>Retirar de la alcancía</span><select id="jarPick"></select></label>
+      <label class="field" id="catWrap" hidden><span>Categoría <em>(opcional)</em></span><input id="cat" maxlength="24" list="catList" autocomplete="off" placeholder="Ej.: Comida, Transporte, Ocio…"></label>
+      <datalist id="catList"></datalist>
       <label class="field"><span>Concepto <em>(opcional)</em></span><input id="note" maxlength="60" placeholder="Ej.: pago de un trabajo, venta, compra…"></label>
       <div class="preview" id="preview"></div>
       <button class="btn primary big" id="opBtn" type="submit">Registrar ingreso</button>
@@ -263,6 +332,14 @@ body.side-open .side-tab{right:min(var(--side-w),100vw)}
     <div class="jars" id="jars"></div>
   </section>
 
+  <section id="goalsSection">
+    <div class="sec-head">
+      <div><h2>Metas de ahorro</h2><div class="muted" style="font-size:13.5px;margin-top:2px">Ponle un objetivo y, si quieres, una fecha; el avance se calcula solo con tus alcancías.</div></div>
+      <button class="btn sm primary" id="btnAddGoal">+ Nueva meta</button>
+    </div>
+    <div class="goals" id="goals"></div>
+  </section>
+
   <section id="incomesSection">
     <div class="sec-head">
       <div><h2>Ingresos fijos</h2><div class="muted" style="font-size:13.5px;margin-top:2px">Sueldos o pagos recurrentes: se suman solos y se reparten entre tus alcancías.</div></div>
@@ -271,12 +348,21 @@ body.side-open .side-tab{right:min(var(--side-w),100vw)}
     <div class="card list" id="incomes"></div>
   </section>
 
+  <section id="expensesSection">
+    <div class="sec-head">
+      <div><h2>Gastos fijos</h2><div class="muted" style="font-size:13.5px;margin-top:2px">Arriendo, suscripciones, cuentas: se descuentan solos de la alcancía que elijas.</div></div>
+      <button class="btn sm primary" id="btnAddExp">+ Nuevo gasto fijo</button>
+    </div>
+    <div class="card list" id="expenses"></div>
+  </section>
+
   <section id="movSection">
     <div class="sec-head">
       <h2>Movimientos</h2>
       <div class="filters" id="movFilters">
         <button data-f="all" class="on">Todos</button><button data-f="in">Ingresos</button><button data-f="out">Retiros</button><button data-f="move">Traspasos</button>
       </div>
+      <button class="btn sm" id="btnCsv" title="Descarga los movimientos para abrirlos en Excel">⤓ Exportar a Excel (CSV)</button>
     </div>
     <div class="card list" id="movs"></div>
     <div style="text-align:center;margin-top:12px"><button class="btn ghost sm" id="btnMore" hidden>Ver más movimientos</button></div>
@@ -294,6 +380,8 @@ body.side-open .side-tab{right:min(var(--side-w),100vw)}
     <div class="chart" id="histChart"></div>
     <h3>Cómo está repartido tu dinero</h3>
     <div id="stackBox"></div>
+    <h3>En qué se va tu dinero</h3>
+    <div id="catBox"></div>
     <hr>
     <h2>Simulación</h2>
     <p class="muted" style="margin:-6px 0 0;font-size:13.5px">Imagina que aportas (o retiras) una cantidad de forma periódica y mira cómo cambiaría tu saldo.</p>
@@ -305,7 +393,7 @@ body.side-open .side-tab{right:min(var(--side-w),100vw)}
         <div style="display:flex;gap:6px"><input id="simHorizon" type="number" min="1" max="600" style="width:70px"><select id="simUnit" style="flex:1;width:100%"><option value="dias">días</option><option value="semanas">semanas</option><option value="meses">meses</option><option value="anios">años</option></select></div>
       </label>
       <label class="field full"><span>Rentabilidad anual estimada <em>(opcional, %)</em></span><input id="simRate" inputmode="decimal" placeholder="0"></label>
-      <label class="checkline full"><span class="switch"><input type="checkbox" id="simFixed"><span></span></span>Incluir mis ingresos fijos</label>
+      <label class="checkline full"><span class="switch"><input type="checkbox" id="simFixed"><span></span></span>Incluir mis ingresos y gastos fijos</label>
     </div>
     <div class="legend" id="simLegend"></div>
     <div class="chart" id="simChart"></div>
@@ -325,6 +413,7 @@ body.side-open .side-tab{right:min(var(--side-w),100vw)}
    Datos y utilidades
    ========================================================= */
 const LS = 'mis_finanzas_v1';
+const LS_SNAP = LS+'_snaps';
 const CURRENCIES = {
   CLP:{d:0,n:'Peso chileno (CLP)'}, USD:{d:2,n:'Dólar (USD)'}, EUR:{d:2,n:'Euro (EUR)'},
   ARS:{d:0,n:'Peso argentino (ARS)'}, COP:{d:0,n:'Peso colombiano (COP)'}, MXN:{d:2,n:'Peso mexicano (MXN)'},
@@ -337,7 +426,7 @@ const FREQ = {
 const PALETTE = ['#1456d6','#0c9250','#e8710a','#8e44ad','#d63a7e','#0097a7','#b59a00','#5c6bc0','#e53935','#00897b'];
 
 const defaults = () => ({
-  v:1, theme:null, currency:'CLP', jars:[], movs:[], incomes:[],
+  v:1, theme:null, currency:'CLP', jars:[], movs:[], incomes:[], expenses:[], goals:[], lastExport:0, snoozeUntil:0, createdAt:Date.now(),
   sideOpen: window.innerWidth >= 1300, range:'mes', movFilter:'all', movLimit:30, jarCount:0,
   sim:{sign:'in', amount:'', freq:'mensual', horizon:12, unit:'meses', rate:'', fixed:true}
 });
@@ -472,10 +561,10 @@ function applyDeposit(amount,{note='',ts=Date.now(),auto=false}={}){
   S.movs.push({id:uid(),ts,type:'in',amount:r(amount),note,auto,split});
   return true;
 }
-function applyWithdraw(jarId,amount,note){
+function applyWithdraw(jarId,amount,note,cat='',{ts=Date.now(),auto=false}={}){
   const j = jarById(jarId); if(!j || amount>j.balance+1e-9) return false;
   j.balance = r(j.balance-amount);
-  S.movs.push({id:uid(),ts:Date.now(),type:'out',amount:r(amount),jarId:j.id,jarName:j.name,note});
+  S.movs.push({id:uid(),ts,type:'out',amount:r(amount),jarId:j.id,jarName:j.name,note,cat,auto});
   return true;
 }
 function applyMove(fromId,splits){ // splits: [{id,amt}]
@@ -485,7 +574,7 @@ function applyMove(fromId,splits){ // splits: [{id,amt}]
   const out = [];
   splits.forEach(s=>{ const t=jarById(s.id); if(!t||s.amt<=0) return; t.balance=r(t.balance+s.amt); out.push({id:t.id,name:t.name,amt:s.amt}); });
   from.balance = r(from.balance-sum);
-  S.movs.push({id:uid(),ts:Date.now(),type:'move',amount:sum,fromName:from.name,split:out});
+  S.movs.push({id:uid(),ts:Date.now(),type:'move',amount:sum,fromId:from.id,fromName:from.name,split:out});
   return true;
 }
 
@@ -520,6 +609,91 @@ function runIncomes(silent){
   if(blocked && !silent) toast('Un ingreso fijo está en espera: tus porcentajes superan el 100 %.');
 }
 
+/* ---------- v2: lógica nueva ---------- */
+function ceilR(x){ return Math.ceil(x*P()-1e-7)/P(); }
+function amtStr(n){ return D()===0 ? Number(n).toLocaleString('es-CL') : String(n).replace('.',','); }
+
+const DEFAULT_CATS=['Comida','Transporte','Arriendo / Hogar','Cuentas y servicios','Salud','Educación','Ocio','Ropa','Suscripciones','Regalos','Otros'];
+function allCats(){
+  const seen=new Map(), used=new Map();
+  DEFAULT_CATS.forEach(c=>seen.set(c.toLowerCase(),c));
+  S.movs.forEach(m=>{ if(m.type==='out'&&m.cat){ const k=m.cat.toLowerCase(); if(!seen.has(k)) seen.set(k,m.cat); used.set(k,(used.get(k)||0)+1); } });
+  S.expenses.forEach(x=>{ if(x.cat){ const k=x.cat.toLowerCase(); if(!seen.has(k)) seen.set(k,x.cat); } });
+  return [...seen.entries()].sort((a,b)=>(used.get(b[0])||0)-(used.get(a[0])||0)).map(e=>e[1]);
+}
+function fillCatList(){ $('#catList').innerHTML=allCats().map(c=>`<option value="${esc(c)}"></option>`).join(''); }
+
+/* Deshacer un movimiento: devuelve {ok,msg} y no toca nada si no se puede */
+function undoMov(id){
+  const i=S.movs.findIndex(x=>x.id===id);
+  if(i<0) return {ok:false,msg:'No se encontró ese movimiento.'};
+  const m=S.movs[i];
+  const checkParts=parts=>{
+    for(const s of parts){
+      const j=jarById(s.id);
+      if(!j) return `La alcancía «${s.name}» ya no existe, así que este movimiento no se puede deshacer.`;
+      if(j.balance+1e-9<s.amt) return `«${j.name}» ya no tiene ${fmt(s.amt)} disponibles (hoy tiene ${fmt(j.balance)}). Devuelve ese dinero a la alcancía y vuelve a intentarlo.`;
+    }
+    return null;
+  };
+  if(m.type==='in'){
+    const parts=m.split||[]; const err=checkParts(parts); if(err) return {ok:false,msg:err};
+    parts.forEach(s=>{ const j=jarById(s.id); j.balance=r(j.balance-s.amt); });
+  }else if(m.type==='out'){
+    const j=jarById(m.jarId)||S.jars.find(x=>x.name===m.jarName)||ensureSobrante();
+    j.balance=r(j.balance+m.amount);
+  }else{
+    const parts=m.split||[];
+    const from=(m.fromId&&jarById(m.fromId))||S.jars.find(x=>x.name===m.fromName);
+    if(!from) return {ok:false,msg:`La alcancía de origen «${m.fromName}» ya no existe, así que este traspaso no se puede deshacer.`};
+    const err=checkParts(parts); if(err) return {ok:false,msg:err};
+    parts.forEach(s=>{ const j=jarById(s.id); j.balance=r(j.balance-s.amt); });
+    from.balance=r(from.balance+m.amount);
+  }
+  S.movs.splice(i,1);
+  return {ok:true};
+}
+
+/* Gastos fijos: se descuentan solos de su alcancía; si no alcanza, quedan en espera */
+function runExpenses(silent){
+  let count=0; const waiting=[];
+  const now=Date.now();
+  for(const ex of S.expenses){
+    if(!ex.active) continue;
+    let g=0;
+    while(ex.next<=now && g<500){
+      const jar=jarById(ex.jarId);
+      if(!jar || jar.balance+1e-9<ex.amount){ waiting.push(ex.name); break; }
+      applyWithdraw(ex.jarId,ex.amount,'Gasto fijo · '+ex.name,ex.cat||'',{ts:ex.next,auto:true});
+      ex.next=advance(ex); count++; g++;
+    }
+  }
+  if(count){ save(); render(); if(!silent) toast(count===1?'Se registró 1 gasto fijo.':`Se registraron ${count} gastos fijos.`); }
+  else if(waiting.length){ if(!silent) toast(`Gasto fijo en espera por saldo insuficiente: «${waiting[0]}».`); }
+}
+function runAll(silent){ runIncomes(silent); runExpenses(silent); }
+
+function goalInfo(g){
+  const jar = g.jarId==='total' ? null : jarById(g.jarId);
+  const cur = g.jarId==='total' ? total() : (jar?jar.balance:0);
+  return {jar,cur,left:r(Math.max(0,g.target-cur)),done:g.target>0&&cur>=g.target,pct:g.target>0?Math.max(0,Math.min(100,cur/g.target*100)):0};
+}
+
+/* Copias automáticas dentro del navegador */
+function getSnaps(){ try{ const a=JSON.parse(localStorage.getItem(LS_SNAP)||'[]'); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
+function pushSnap(label,auto){
+  try{
+    const list=getSnaps(); const day=toDateInput(Date.now());
+    if(auto && list.some(s=>s.day===day&&s.auto)) return;
+    list.push({day,ts:Date.now(),label,auto:!!auto,data:JSON.stringify(S)});
+    while(list.length>8) list.shift();
+    for(let k=0;k<4;k++){
+      try{ localStorage.setItem(LS_SNAP,JSON.stringify(list)); return; }
+      catch(e){ if(list.length<=1) return; list.shift(); }
+    }
+  }catch(e){}
+}
+
 /* ---------- Simulación ---------- */
 function occurs(date,freq,anchor,anchorDay){
   const diff = Math.round((date-anchor)/864e5);
@@ -538,7 +712,8 @@ function simulate({days,rate,fixed,extra}){
   let bal = total(); const g = Math.pow(1+rate,1/365);
   const step = Math.max(1,Math.ceil(days/200));
   const times=[today.getTime()], vals=[bal]; let contrib=0;
-  const incs = fixed ? S.incomes.filter(i=>i.active).map(i=>({amt:i.amount,freq:i.freq,anchor:startOfDay(new Date(i.next)),ad:i.anchorDay})) : [];
+  const mapRec=(i,sg)=>({amt:sg*i.amount,freq:i.freq,anchor:startOfDay(new Date(i.next)),ad:i.anchorDay});
+  const incs = fixed ? S.incomes.filter(i=>i.active).map(i=>mapRec(i,1)).concat(S.expenses.filter(i=>i.active).map(i=>mapRec(i,-1))) : [];
   for(let i=1;i<=days;i++){
     const d = new Date(today); d.setDate(today.getDate()+i);
     bal *= g;
@@ -571,11 +746,11 @@ function openModal(html,{sticky=false,onClose}={}){
   if(!sticky) ov.addEventListener('mousedown',e=>{ if(e.target===ov){ api.close(); onClose&&onClose(); } });
   return api;
 }
-function confirmDelete({title,text,label='Eliminar',onConfirm}){
+function confirmDelete({title,text,label='Eliminar',swLabel='Confirmo que quiero eliminarlo',onConfirm}){
   const m = openModal(`
     <div class="mhead"><h3>${title}</h3></div>
     <p>${text}</p>
-    <div class="confirm-line"><label class="switch"><input type="checkbox" id="cfSw"><span></span></label><span>Confirmo que quiero eliminarlo</span></div>
+    <div class="confirm-line"><label class="switch"><input type="checkbox" id="cfSw"><span></span></label><span>${swLabel}</span></div>
     <div class="foot"><button class="btn ghost" id="cfNo">Cancelar</button><button class="btn danger" id="cfYes" disabled>${label}</button></div>`);
   const sw=$('#cfSw',m.el), yes=$('#cfYes',m.el);
   sw.onchange=()=>yes.disabled=!sw.checked;
@@ -590,7 +765,7 @@ let mode = 'in', editingId = null, shownTotal = 0;
 
 function render(){
   mkFmt();
-  renderTotal(); renderForm(); renderJars(); renderDist(); renderIncomes(); renderMovs(); renderStats();
+  renderTotal(); renderForm(); renderJars(); renderDist(); renderGoals(); renderIncomes(); renderExpenses(); renderMovs(); renderStats(); renderBanners();
 }
 function animateNumber(el,from,to){
   cancelAnimationFrame(el._raf);
@@ -612,6 +787,7 @@ function renderForm(){
   $('#modeSeg').dataset.mode = mode;
   $$('#modeSeg button').forEach(b=>b.classList.toggle('on',b.dataset.mode===mode));
   $('#jarPickWrap').hidden = mode!=='out';
+  $('#catWrap').hidden = mode!=='out'; if(mode==='out') fillCatList();
   const btn = $('#opBtn');
   btn.textContent = mode==='in' ? 'Registrar ingreso' : 'Registrar retiro';
   btn.classList.toggle('primary',mode==='in'); btn.classList.toggle('danger',mode==='out');
@@ -645,12 +821,12 @@ $('#opForm').addEventListener('submit',e=>{
   if(!(amt>0)){ const f=amtEl.closest('.field'); f.classList.remove('shake'); void f.offsetWidth; f.classList.add('shake'); toast('Ingresa un monto mayor a cero.'); return; }
   if(mode==='in') submitIn(amt,note); else submitOut(amt,note);
 });
-function afterOp(msg){ $('#amount').value=''; $('#note').value=''; save(); render(); toast(msg); }
+function afterOp(msg){ $('#amount').value=''; $('#note').value=''; $('#cat').value=''; save(); render(); toast(msg); }
 function submitOut(amt,note){
   const id = $('#jarPick').value; const j = jarById(id);
   if(!j){ toast('Primero crea una alcancía de la cual retirar.'); return; }
   if(amt>j.balance){ toast(`«${j.name}» solo tiene ${fmt(j.balance)} disponible.`); return; }
-  applyWithdraw(id,amt,note); afterOp('Retiro registrado.');
+  applyWithdraw(id,amt,note,$('#cat').value.trim()); afterOp('Retiro registrado.');
 }
 function submitIn(amt,note){
   const p = planDeposit(amt);
@@ -694,6 +870,7 @@ function renderJars(){
     return `<article class="card jar ${j.special?'special':''}" data-id="${j.id}" style="--jc:${j.color}">
       <div class="jar-top">
         <button class="grip" title="Arrastra para reordenar" aria-label="Reordenar">⠿</button>
+        <span class="mv"><button class="icon-btn" data-act="left" title="Mover antes" aria-label="Mover antes">‹</button><button class="icon-btn" data-act="right" title="Mover después" aria-label="Mover después">›</button></span>
         <div class="jar-name">${nameHtml}</div>
         ${j.special?'':`<button class="icon-btn" data-act="rename" title="Cambiar nombre">✎</button>`}
         ${canDelete?`<button class="icon-btn del" data-act="del" title="Eliminar alcancía">✕</button>`:''}
@@ -733,6 +910,7 @@ jarsGrid.addEventListener('click',e=>{
   if(act==='rename'){ editingId=j.id; renderJars(); }
   else if(act==='del') askDeleteJar(j);
   else if(act==='distribute') openDistribute(j);
+  else if(act==='left'||act==='right'){ const i=S.jars.indexOf(j), k=act==='left'?i-1:i+1; if(k<0||k>=S.jars.length) return; [S.jars[i],S.jars[k]]=[S.jars[k],S.jars[i]]; save(); renderJars(); }
 });
 jarsGrid.addEventListener('change',e=>{
   if(!e.target.classList.contains('pct-in')) return;
@@ -794,12 +972,14 @@ document.addEventListener('mouseup',()=>{ if(!dragEl) $$('.jar[draggable="true"]
 
 function askDeleteJar(j){
   const has = j.balance>0;
+  const gl=S.goals.filter(g=>g.jarId===j.id).length, ex=S.expenses.filter(e=>e.jarId===j.id).length;
+  const extra=(gl||ex)?`<br><br>También se eliminarán ${[gl?`${gl} ${gl===1?'meta':'metas'}`:'',ex?`${ex} ${ex===1?'gasto fijo':'gastos fijos'}`:''].filter(Boolean).join(' y ')} ligados a ella.`:'';
   confirmDelete({
     title:`Eliminar «${esc(j.name)}»`,
-    text: has ? `Esta alcancía tiene <b>${fmt(j.balance)}</b>. Al eliminarla, ese dinero se traspasará a «Sobrante» para que no se pierda.` : 'Esta alcancía está vacía y se eliminará por completo.',
+    text:(has ? `Esta alcancía tiene <b>${fmt(j.balance)}</b>. Al eliminarla, ese dinero se traspasará a «Sobrante» para que no se pierda.` : 'Esta alcancía está vacía y se eliminará por completo.')+extra,
     onConfirm:()=>{
       if(has){ const sob=ensureSobrante(); applyMove(j.id,[{id:sob.id,amt:j.balance}]); }
-      S.jars = S.jars.filter(x=>x.id!==j.id); save(); render(); toast('Alcancía eliminada.');
+      S.jars = S.jars.filter(x=>x.id!==j.id); S.goals=S.goals.filter(g=>g.jarId!==j.id); S.expenses=S.expenses.filter(e=>e.jarId!==j.id); save(); render(); toast('Alcancía eliminada.');
     }
   });
 }
@@ -973,14 +1153,15 @@ function renderMovs(){
       sub=fdate(m.ts,!m.auto)+(m.split&&m.split.length?' · '+m.split.map(s=>`${esc(s.name)} ${fmt(s.amt)}`).join(', '):'');
     }else if(m.type==='out'){
       badge='<div class="badge out">↓</div>'; cls='neg'; amt='− '+fmt(m.amount);
-      title='Retiro de '+esc(m.jarName); sub=fdate(m.ts,true)+(m.note?' · '+esc(m.note):'');
+      title='Retiro de '+esc(m.jarName)+(m.auto?'<span class="tag">Automático</span>':'')+(m.cat?'<span class="tag">'+esc(m.cat)+'</span>':''); sub=fdate(m.ts,!m.auto)+(m.note?' · '+esc(m.note):'');
     }else{
       badge='<div class="badge move">⇄</div>'; cls='muted'; amt=fmt(m.amount);
       const names=(m.split||[]).map(s=>esc(s.name)).join(', ');
       title=`${esc(m.fromName)} → ${names}`;
       sub=fdate(m.ts,true)+((m.split&&m.split.length>1)?' · '+m.split.map(s=>`${esc(s.name)} ${fmt(s.amt)}`).join(', '):'');
     }
-    return `<div class="row">${badge}<div class="main"><div class="t">${title}</div><div class="s">${sub}</div></div><div class="amt ${cls}">${amt}</div></div>`;
+    const acts=`<div class="acts">${m.type!=='move'?'<button class="icon-btn" data-act="edit" title="Editar concepto" aria-label="Editar">✎</button>':''}<button class="icon-btn del" data-act="undo" title="Deshacer este movimiento" aria-label="Deshacer">↶</button></div>`;
+    return `<div class="row" data-id="${m.id}">${badge}<div class="main"><div class="t">${title}</div><div class="s">${sub}</div></div><div class="amt ${cls}">${amt}</div>${acts}</div>`;
   }).join('');
   $('#btnMore').hidden = all.length<=S.movLimit;
 }
@@ -1023,7 +1204,7 @@ function drawChart(el){
   });
   svg+=`<line class="guide" x1="0" x2="0" y1="${pt}" y2="${H-pb}" stroke="var(--muted)" stroke-width="1" stroke-dasharray="3 4" style="opacity:0"/>`;
   cfg.series.forEach((s,i)=>{ svg+=`<circle class="dot" data-i="${i}" r="5" fill="${s.color}" stroke="var(--surface)" stroke-width="2" style="opacity:0"/>`; });
-  svg+=`<rect class="hit" x="${pl}" y="0" width="${W-pl-pr}" height="${H}" fill="transparent"/></svg><div class="tt"></div>`;
+  svg+=`<rect class="hit" x="${pl}" y="0" width="${W-pl-pr}" height="${H}" fill="transparent" style="touch-action:pan-y"/></svg><div class="tt"></div>`;
   el.innerHTML=svg;
   const guide=$('.guide',el), dots=$$('.dot',el), tt=$('.tt',el), hit=$('.hit',el), sv=$('svg',el);
   const show=bi=>{
@@ -1034,13 +1215,14 @@ function drawChart(el){
     const v0=cfg.series[0].values[bi]; let top=(v0!=null?Y(v0):H/2)-h-12; if(top<0) top=Y(v0!=null?v0:0)+14;
     tt.style.transform=`translate(${left}px,${Math.max(0,top)}px)`;
   };
-  hit.addEventListener('mousemove',ev=>{
+  const onMove=ev=>{
     const rect=sv.getBoundingClientRect(); const t=t0+(ev.clientX-rect.left-pl)/(W-pl-pr)*span;
     let bi=-1,bd=Infinity;
     cfg.times.forEach((tt2,i)=>{ if(cfg.series[0].values[i]==null) return; const dd=Math.abs(tt2-t); if(dd<bd){ bd=dd; bi=i; } });
     if(bi>=0) show(bi);
-  });
-  hit.addEventListener('mouseleave',()=>{ guide.style.opacity=0; dots.forEach(d=>d.style.opacity=0); tt.style.opacity=0; });
+  };
+  hit.addEventListener('pointermove',onMove); hit.addEventListener('pointerdown',onMove);
+  hit.addEventListener('pointerleave',ev=>{ if(ev.pointerType==='touch') return; guide.style.opacity=0; dots.forEach(d=>d.style.opacity=0); tt.style.opacity=0; });
 }
 
 /* ---------- Estadísticas ---------- */
@@ -1089,6 +1271,7 @@ function renderStats(){
   $('#stackBox').innerHTML = t>0
     ? `<div class="stack">${js.map(j=>`<i style="flex:${j.balance};background:${j.color}" title="${esc(j.name)}"></i>`).join('')}</div><div class="legend-list">${js.map(j=>`<div><i style="background:${j.color}"></i>${esc(j.name)}<b>${fmtPct(j.balance/t*100)} %</b></div>`).join('')}</div>`
     : `<div class="muted" style="font-size:13.5px">Cuando tengas dinero en tus alcancías verás aquí cómo se reparte.</div>`;
+  renderCats(h.domain[0]);
   renderSim();
 }
 
@@ -1110,7 +1293,7 @@ function renderSim(){
     : [{name:'Proyección',color:'var(--accent)',values:base.vals,area:true}];
   $('#simLegend').innerHTML = sim
     ? `<span><i style="border-color:var(--accent)"></i>Con tu simulación</span><span><i class="dash" style="border-color:var(--muted)"></i>Sin simulación</span>`
-    : `<span><i style="border-color:var(--accent)"></i>Proyección de tu saldo${s.fixed&&S.incomes.some(i=>i.active)?' con tus ingresos fijos':''}</span>`;
+    : `<span><i style="border-color:var(--accent)"></i>Proyección de tu saldo${s.fixed&&(S.incomes.some(i=>i.active)||S.expenses.some(i=>i.active))?' con tus ingresos y gastos fijos':''}</span>`;
   lineChart($('#simChart'),{
     times:base.times, domain:[base.times[0],base.times[base.times.length-1]], yFmt:short, xFmt:xf,
     series,
@@ -1156,6 +1339,7 @@ $('#sideClose').onclick=()=>{ S.sideOpen=false; save(); applySide(); };
 function applyTheme(){
   const dark = S.theme ? S.theme==='dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
   document.documentElement.dataset.theme = dark?'dark':'light';
+  const tc=document.querySelector('meta[name="theme-color"]'); if(tc) tc.setAttribute('content',dark?'#070d19':'#f2f5fa');
   $('#btnTheme').textContent = dark?'☀':'☾';
   $('#btnTheme').title = dark?'Cambiar a modo claro':'Cambiar a modo oscuro';
 }
@@ -1164,43 +1348,340 @@ $('#curSel').innerHTML=Object.entries(CURRENCIES).map(([k,v])=>`<option value="$
 $('#curSel').value=S.currency;
 $('#curSel').onchange=e=>{ S.currency=e.target.value; save(); shownTotal=total(); render(); };
 
-$('#btnExport').onclick=()=>{
-  const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
-  a.download=`finanzas-respaldo-${toDateInput(Date.now())}.json`; document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(()=>URL.revokeObjectURL(a.href),1000); toast('Respaldo descargado.');
-};
-$('#btnImport').onclick=()=>$('#fileImport').click();
-$('#fileImport').onchange=e=>{
-  const f=e.target.files[0]; e.target.value=''; if(!f) return;
+/* =========================================================
+   v2: metas, gastos fijos, movimientos, respaldo y app instalable
+   ========================================================= */
+function infoModal(title,msg){
+  const m=openModal(`<div class="mhead"><h3>${title}</h3></div><p>${msg}</p><div class="foot"><button class="btn primary" id="infoOk">Entendido</button></div>`);
+  $('#infoOk',m.el).onclick=()=>m.close();
+}
+
+/* ---------- Metas de ahorro ---------- */
+function renderGoals(){
+  const box=$('#goals');
+  if(!S.goals.length){ box.innerHTML=`<div class="card empty" style="grid-column:1/-1">Crea una meta (un viaje, un equipo, un fondo de emergencia) y mira cuánto te falta para llegar.</div>`; return; }
+  box.innerHTML=S.goals.map(g=>{
+    const gi=goalInfo(g); const color=gi.jar?gi.jar.color:'var(--btn)'; const ico=iconFor(g.name);
+    let meta;
+    if(gi.done) meta=`<span><b style="color:var(--pos)">¡Meta alcanzada!</b></span>`;
+    else{
+      meta=`<span>Te faltan <b>${fmt(gi.left)}</b></span>`;
+      if(g.date){
+        const days=Math.round((startOfDay(new Date(g.date))-startOfDay(new Date()))/864e5);
+        if(days<0) meta+=`<span style="color:var(--neg)">La fecha objetivo (${fdate(g.date)}) ya pasó.</span>`;
+        else if(days===0) meta+=`<span>La fecha objetivo es hoy.</span>`;
+        else{
+          let need,unit;
+          if(days>=30){ need=ceilR(gi.left/(days/30.4375)); unit='al mes'; }
+          else if(days>=7){ need=ceilR(gi.left/(days/7)); unit='a la semana'; }
+          else { need=ceilR(gi.left/days); unit='al día'; }
+          meta+=`<span>Para el ${fdate(g.date)} (${days} ${days===1?'día':'días'}): aparta unos <b>${fmt(need)}</b> ${unit}.</span>`;
+        }
+      }
+    }
+    meta+=`<span>${gi.jar?'Avance según «'+esc(gi.jar.name)+'»':'Avance según el total de tus alcancías'}</span>`;
+    return `<article class="card goal ${gi.done?'done':''}" data-id="${g.id}" style="--gc:${color};--jc:${color}">
+      <div class="goal-top">${ico?`<span class="jar-ico">${ico}</span>`:''}<div class="goal-name" title="${esc(g.name)}">${esc(g.name)}</div>
+        <button class="icon-btn" data-act="edit" title="Editar meta">✎</button><button class="icon-btn del" data-act="del" title="Eliminar meta">✕</button></div>
+      <div class="goal-nums"><b>${fmt(gi.cur)}</b><span class="muted">de ${fmt(g.target)} · ${fmtPct(gi.pct)} %</span></div>
+      <div class="goal-bar"><i style="width:${gi.pct}%"></i></div>
+      <div class="goal-meta">${meta}</div></article>`;
+  }).join('');
+  let changed=false; const reached=[];
+  S.goals.forEach(g=>{ const d=goalInfo(g).done; if(d&&!g.notified){ g.notified=true; reached.push(g.name); changed=true; } else if(!d&&g.notified){ g.notified=false; changed=true; } });
+  if(changed) save();
+  if(reached.length) toast(reached.length===1?`¡Alcanzaste tu meta «${reached[0]}»!`:`¡Alcanzaste ${reached.length} metas!`);
+}
+$('#goals').addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]'); const card=e.target.closest('.goal'); if(!b||!card) return;
+  const g=S.goals.find(x=>x.id===card.dataset.id); if(!g) return;
+  if(b.dataset.act==='edit') openGoal(g);
+  else confirmDelete({title:`Eliminar la meta «${esc(g.name)}»`,text:'Solo se elimina la meta; tu dinero y tus alcancías no se tocan.',onConfirm:()=>{ S.goals=S.goals.filter(x=>x.id!==g.id); save(); render(); toast('Meta eliminada.'); }});
+});
+$('#btnAddGoal').onclick=()=>openGoal(null);
+function openGoal(g){
+  const editing=!!g; const today=toDateInput(Date.now());
+  const opts=`<option value="total" ${editing&&g.jarId==='total'?'selected':''}>Total de todas las alcancías</option>`+S.jars.map(j=>`<option value="${j.id}" ${editing&&g.jarId===j.id?'selected':''}>${esc(j.name)}</option>`).join('');
+  const m=openModal(`
+    <div class="mhead"><h3>${editing?'Editar meta':'Nueva meta de ahorro'}</h3><button class="icon-btn" id="xGoal" aria-label="Cerrar">✕</button></div>
+    <div class="body">
+      <label class="field"><span>¿Qué quieres lograr?</span><input id="gName" maxlength="40" placeholder="Ej.: Viaje, Notebook, Fondo de emergencia…" value="${editing?esc(g.name):''}"></label>
+      <label class="field"><span>Monto objetivo</span><div class="money"><i>${esc(sym())}</i><input id="gAmt" class="money-in" inputmode="decimal" placeholder="0" value="${editing?amtStr(g.target):''}"></div></label>
+      <label class="field"><span>¿Qué alcancía cuenta para esta meta?</span><select id="gJar" style="width:100%">${opts}</select></label>
+      <label class="field"><span>Fecha objetivo <em>(opcional)</em></span><input id="gDate" type="date" min="${today}" value="${editing&&g.date?toDateInput(g.date):''}"></label>
+    </div>
+    <div class="foot"><button class="btn ghost" id="gNo">Cancelar</button><button class="btn primary" id="gOk">${editing?'Guardar cambios':'Crear meta'}</button></div>`);
+  $('#gName',m.el).focus();
+  const ok=()=>{
+    const name=$('#gName',m.el).value.trim(), amt=parseAmt($('#gAmt',m.el).value), dv=$('#gDate',m.el).value, jarId=$('#gJar',m.el).value;
+    if(!name){ toast('Ponle un nombre a la meta.'); return; }
+    if(!(amt>0)){ toast('Ingresa un monto objetivo mayor a cero.'); return; }
+    let date=null; if(dv){ const [y,mo,d]=dv.split('-').map(Number); date=new Date(y,mo-1,d,12).getTime(); }
+    const goal=editing?g:{id:uid()};
+    Object.assign(goal,{name,target:amt,jarId,date});
+    goal.notified=goalInfo(goal).done;
+    if(!editing) S.goals.push(goal);
+    m.close(); save(); render(); toast(editing?'Meta actualizada.':'Meta creada.');
+  };
+  $('#gOk',m.el).onclick=ok; $('#gNo',m.el).onclick=()=>m.close(); $('#xGoal',m.el).onclick=()=>m.close();
+  m.el.addEventListener('keydown',e=>{ if(e.key==='Enter'&&e.target.tagName!=='SELECT'){ e.preventDefault(); ok(); } });
+}
+
+/* ---------- Gastos fijos ---------- */
+function renderExpenses(){
+  const box=$('#expenses');
+  if(!S.expenses.length){ box.innerHTML=`<div class="empty">Aún no tienes gastos fijos. Agrega, por ejemplo, el arriendo, una suscripción o el internet, y se descontarán solos de la alcancía que elijas.</div>`; return; }
+  const now=Date.now();
+  box.innerHTML=S.expenses.map(x=>{
+    const jar=jarById(x.jarId);
+    let status;
+    if(!x.active) status='en pausa';
+    else if(!jar) status='elige una alcancía para que pueda cobrarse';
+    else if(x.next<=now && jar.balance<x.amount) status=`en espera: «${esc(jar.name)}» no tiene saldo suficiente`;
+    else status='próximo cobro: '+fdate(x.next);
+    return `<div class="row" data-id="${x.id}">
+      <div class="badge out">↻</div>
+      <div class="main"><div class="t">${esc(x.name)}${x.cat?`<span class="tag">${esc(x.cat)}</span>`:''}</div>
+        <div class="s">${fmt(x.amount)} · ${FREQ[x.freq].toLowerCase()}${jar?' · de «'+esc(jar.name)+'»':''} · ${status}</div></div>
+      <label class="switch" title="${x.active?'Pausar':'Activar'}"><input type="checkbox" data-act="toggle" ${x.active?'checked':''}><span></span></label>
+      <button class="icon-btn" data-act="edit" title="Editar">✎</button>
+      <button class="icon-btn del" data-act="del" title="Eliminar">✕</button>
+    </div>`;
+  }).join('');
+}
+$('#expenses').addEventListener('click',e=>{
+  const row=e.target.closest('.row'); const b=e.target.closest('[data-act]'); if(!row||!b||b.dataset.act==='toggle') return;
+  const x=S.expenses.find(v=>v.id===row.dataset.id); if(!x) return;
+  if(b.dataset.act==='edit') openExpense(x);
+  else if(b.dataset.act==='del') confirmDelete({title:`Eliminar «${esc(x.name)}»`,text:'Dejará de descontarse automáticamente. Los movimientos que ya se registraron se conservan.',onConfirm:()=>{ S.expenses=S.expenses.filter(v=>v.id!==x.id); save(); render(); toast('Gasto fijo eliminado.'); }});
+});
+$('#expenses').addEventListener('change',e=>{
+  if(e.target.dataset.act!=='toggle') return;
+  const x=S.expenses.find(v=>v.id===e.target.closest('.row').dataset.id); if(!x) return;
+  x.active=e.target.checked;
+  if(x.active){ let g=0; while(x.next<Date.now()&&g<1000){ x.next=advance(x); g++; } }
+  save(); render(); toast(x.active?'Gasto fijo activado.':'Gasto fijo en pausa.');
+});
+$('#btnAddExp').onclick=()=>openExpense(null);
+function openExpense(x){
+  if(!S.jars.length){ toast('Primero crea una alcancía de la cual se descontará el gasto.'); return; }
+  fillCatList();
+  const editing=!!x; const today=toDateInput(Date.now());
+  const defJar=editing?x.jarId:(S.jars.find(j=>!j.special)||S.jars[0]).id;
+  const m=openModal(`
+    <div class="mhead"><h3>${editing?'Editar gasto fijo':'Nuevo gasto fijo'}</h3><button class="icon-btn" id="xEx" aria-label="Cerrar">✕</button></div>
+    <div class="body">
+      <label class="field"><span>Nombre</span><input id="exName" maxlength="40" placeholder="Ej.: Arriendo, Internet, Spotify…" value="${editing?esc(x.name):''}"></label>
+      <div class="two-cols">
+        <label class="field"><span>Monto</span><div class="money"><i>${esc(sym())}</i><input id="exAmt" class="money-in" inputmode="decimal" placeholder="0" value="${editing?amtStr(x.amount):''}"></div></label>
+        <label class="field"><span>Frecuencia</span><select id="exFreq" style="width:100%">${Object.entries(FREQ).map(([k,v])=>`<option value="${k}" ${(editing?x.freq:'mensual')===k?'selected':''}>${v}</option>`).join('')}</select></label>
+      </div>
+      <label class="field"><span>Se descuenta de la alcancía</span><select id="exJar" style="width:100%">${S.jars.map(j=>`<option value="${j.id}" ${j.id===defJar?'selected':''}>${esc(j.name)}</option>`).join('')}</select></label>
+      <label class="field"><span>Categoría <em>(opcional)</em></span><input id="exCat" list="catList" maxlength="24" autocomplete="off" placeholder="Ej.: Arriendo / Hogar" value="${editing?esc(x.cat||''):''}"></label>
+      <label class="field"><span>${editing?'Próximo cobro':'Primer cobro'}</span><input id="exDate" type="date" ${editing?'':`min="${today}"`} value="${editing?toDateInput(x.next):today}"></label>
+      <div class="muted" style="font-size:13px">Si la alcancía no tiene saldo suficiente el día del cobro, el gasto queda en espera y se registra apenas haya fondos. Los cobros se aplican cuando la app está abierta.</div>
+    </div>
+    <div class="foot"><button class="btn ghost" id="exNo">Cancelar</button><button class="btn primary" id="exOk">${editing?'Guardar cambios':'Agregar'}</button></div>`);
+  $('#exName',m.el).focus();
+  const ok=()=>{
+    const name=$('#exName',m.el).value.trim(), amt=parseAmt($('#exAmt',m.el).value), dv=$('#exDate',m.el).value;
+    if(!name){ toast('Ponle un nombre a este gasto.'); return; }
+    if(!(amt>0)){ toast('Ingresa un monto mayor a cero.'); return; }
+    if(!dv){ toast('Elige una fecha.'); return; }
+    const [y,mo,d]=dv.split('-').map(Number); const next=new Date(y,mo-1,d,8,0).getTime();
+    const vals={name,amount:amt,freq:$('#exFreq',m.el).value,jarId:$('#exJar',m.el).value,cat:$('#exCat',m.el).value.trim(),next,anchorDay:d};
+    if(editing) Object.assign(x,vals); else S.expenses.push(Object.assign({id:uid(),active:true},vals));
+    m.close(); save(); render(); runExpenses(false); toast(editing?'Gasto fijo actualizado.':'Gasto fijo agregado.');
+  };
+  $('#exOk',m.el).onclick=ok; $('#exNo',m.el).onclick=()=>m.close(); $('#xEx',m.el).onclick=()=>m.close();
+  m.el.addEventListener('keydown',e=>{ if(e.key==='Enter'&&e.target.tagName!=='SELECT'){ e.preventDefault(); ok(); } });
+}
+
+/* ---------- Deshacer / editar movimientos ---------- */
+$('#movs').addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]'); if(!b) return;
+  const row=b.closest('.row'); const m=row&&S.movs.find(x=>x.id===row.dataset.id); if(!m) return;
+  if(b.dataset.act==='edit') openEditMov(m);
+  else if(b.dataset.act==='undo'){
+    const what = m.type==='in' ? `Se quitarán ${fmt(m.amount)} de las alcancías donde se repartió este ingreso${m.auto?' (como es automático, no se volverá a registrar)':''}.`
+               : m.type==='out' ? `Se devolverán ${fmt(m.amount)} a «${esc(m.jarName)}».`
+               : `Se devolverá el dinero a «${esc(m.fromName)}», la alcancía de origen.`;
+    confirmDelete({title:'Deshacer movimiento',text:what+' El movimiento desaparecerá del historial.',label:'Deshacer',swLabel:'Confirmo que quiero deshacerlo',onConfirm:()=>{
+      const res=undoMov(m.id);
+      if(!res.ok){ infoModal('No se pudo deshacer',esc(res.msg)); return; }
+      save(); render(); toast('Movimiento deshecho.');
+    }});
+  }
+});
+function openEditMov(m){
+  fillCatList();
+  const isOut=m.type==='out';
+  const modal=openModal(`
+    <div class="mhead"><h3>Editar movimiento</h3><button class="icon-btn" id="xEm" aria-label="Cerrar">✕</button></div>
+    <div class="body">
+      <label class="field"><span>Concepto</span><input id="emNote" maxlength="60" value="${esc(m.note||'')}"></label>
+      ${isOut?`<label class="field"><span>Categoría</span><input id="emCat" list="catList" maxlength="24" autocomplete="off" value="${esc(m.cat||'')}"></label>`:''}
+      <div class="muted" style="font-size:13px">Para cambiar el monto o la alcancía, usa «Deshacer» (↶) y registra el movimiento otra vez.</div>
+    </div>
+    <div class="foot"><button class="btn ghost" id="emNo">Cancelar</button><button class="btn primary" id="emOk">Guardar</button></div>`);
+  $('#emNote',modal.el).focus();
+  const ok=()=>{
+    m.note=$('#emNote',modal.el).value.trim();
+    if(isOut) m.cat=$('#emCat',modal.el).value.trim();
+    modal.close(); save(); render(); toast('Movimiento actualizado.');
+  };
+  $('#emOk',modal.el).onclick=ok; $('#emNo',modal.el).onclick=()=>modal.close(); $('#xEm',modal.el).onclick=()=>modal.close();
+  modal.el.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); ok(); } });
+}
+
+/* ---------- Estadística por categoría ---------- */
+function renderCats(t0){
+  const map=new Map(); let tot=0;
+  for(const m of S.movs){
+    if(m.type!=='out'||m.ts<t0) continue;
+    const raw=(m.cat||'').trim(); const k=raw.toLowerCase();
+    const e=map.get(k)||{label:raw||'Sin categoría',amt:0};
+    e.amt=r(e.amt+m.amount); map.set(k,e); tot=r(tot+m.amount);
+  }
+  const list=[...map.values()].sort((a,b)=>b.amt-a.amt);
+  $('#catBox').innerHTML=list.length
+    ? `<div class="cat-list">${list.map((e,i)=>`<div class="cat-row"><span>${esc(e.label)}</span><b>${fmt(e.amt)} · ${fmtPct(e.amt/tot*100)} %</b><div class="bar"><i style="width:${e.amt/list[0].amt*100}%;background:${PALETTE[i%PALETTE.length]}"></i></div></div>`).join('')}</div>`
+    : `<div class="muted" style="font-size:13.5px">Cuando registres retiros (con categoría, si quieres) verás aquí en qué se va tu dinero en el período elegido.</div>`;
+}
+
+/* ---------- Exportar a Excel (CSV) ---------- */
+function downloadBlob(blob,name){
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+function exportCSV(){
+  if(!S.movs.length){ toast('Aún no hay movimientos para exportar.'); return; }
+  const num=n=>D()===0?String(Math.round(n)):String(n).replace('.',',');
+  const txt=c=>{ c=String(c==null?'':c); return /^[=+\-@\t\r]/.test(c)?"'"+c:c; };
+  const q=c=>{ c=String(c); return /[;"\n\r]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c; };
+  const rows=[['Fecha','Hora','Tipo','Monto','Alcancía o detalle','Categoría','Concepto','Origen']];
+  [...S.movs].sort((a,b)=>a.ts-b.ts).forEach(m=>{
+    const hora=new Date(m.ts).toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'});
+    let tipo,monto,det,cat='';
+    if(m.type==='in'){ tipo='Ingreso'; monto=num(m.amount); det=(m.split||[]).map(s=>`${s.name}: ${num(s.amt)}`).join(' | '); }
+    else if(m.type==='out'){ tipo='Retiro'; monto=num(-m.amount); det=m.jarName||''; cat=m.cat||''; }
+    else{ tipo='Traspaso'; monto=num(m.amount); det=`${m.fromName} → `+(m.split||[]).map(s=>`${s.name}: ${num(s.amt)}`).join(' | '); }
+    rows.push([toDateInput(m.ts),hora,tipo,monto,txt(det),txt(cat),txt(m.note||''),m.auto?'Automático':'Manual']);
+  });
+  const csv='﻿'+rows.map(row=>row.map(q).join(';')).join('\r\n');
+  downloadBlob(new Blob([csv],{type:'text/csv;charset=utf-8'}),`finanzas-movimientos-${toDateInput(Date.now())}.csv`);
+  toast('Archivo CSV descargado (ábrelo con Excel).');
+}
+$('#btnCsv').onclick=exportCSV;
+
+/* ---------- Respaldo: exportar, importar y copias automáticas ---------- */
+function doExportJSON(){
+  S.lastExport=Date.now(); S.snoozeUntil=0; save();
+  downloadBlob(new Blob([JSON.stringify(S,null,2)],{type:'application/json'}),`finanzas-respaldo-${toDateInput(Date.now())}.json`);
+  renderBanners(); toast('Respaldo descargado.');
+}
+function replaceData(o,label){
+  pushSnap(label,false);
+  const d=defaults(); S=Object.assign(d,o,{sim:Object.assign(d.sim,o.sim||{})});
+  ['jars','movs','incomes','expenses','goals'].forEach(k=>{ if(!Array.isArray(S[k])) S[k]=[]; });
+  save(); $('#curSel').value=S.currency; applyTheme(); applySide(); bindSim(); shownTotal=0; render(); toast('Datos restaurados.');
+}
+function startImport(f){
   const rd=new FileReader();
   rd.onload=()=>{
     let o; try{ o=JSON.parse(rd.result); }catch(_){ toast('El archivo no es un respaldo válido.'); return; }
     if(!o||!Array.isArray(o.jars)||!Array.isArray(o.movs)){ toast('El archivo no parece un respaldo de esta app.'); return; }
-    const m=openModal(`
-      <div class="mhead"><h3>Importar respaldo</h3></div>
-      <p>Esto reemplazará todos los datos actuales (alcancías, movimientos e ingresos fijos) por los del archivo.</p>
-      <div class="confirm-line"><label class="switch"><input type="checkbox" id="imSw"><span></span></label><span>Entiendo que se reemplazarán mis datos</span></div>
-      <div class="foot"><button class="btn ghost" id="imNo">Cancelar</button><button class="btn primary" id="imOk" disabled>Importar</button></div>`);
-    $('#imSw',m.el).onchange=ev=>$('#imOk',m.el).disabled=!ev.target.checked;
-    $('#imNo',m.el).onclick=()=>m.close();
-    $('#imOk',m.el).onclick=()=>{
-      const d=defaults(); S=Object.assign(d,o,{sim:Object.assign(d.sim,o.sim||{})});
-      save(); m.close(); $('#curSel').value=S.currency; applyTheme(); applySide(); bindSim(); shownTotal=0; render(); toast('Respaldo importado.');
-    };
+    confirmDelete({title:'Importar respaldo',text:'Esto reemplazará todos los datos actuales (alcancías, movimientos, metas, ingresos y gastos fijos) por los del archivo. Antes se guardará una copia automática de lo que tienes ahora.',label:'Importar',swLabel:'Entiendo que se reemplazarán mis datos',onConfirm:()=>replaceData(o,'Antes de importar')});
   };
   rd.readAsText(f);
-};
+}
+$('#fileImport').onchange=e=>{ const f=e.target.files[0]; e.target.value=''; if(f) startImport(f); };
+$('#btnData').onclick=openDataModal;
+function openDataModal(){
+  const snaps=getSnaps().slice().reverse();
+  const rows=snaps.map(s=>{
+    let info=''; try{ const d=JSON.parse(s.data); info=`${fmt(r((d.jars||[]).reduce((a,j)=>a+(j.balance||0),0)))} · ${(d.movs||[]).length} movimientos`; }catch(_){}
+    return `<div class="snap"><div class="main"><b>${esc(s.label)}</b>${fdate(s.ts,true)} · ${info}</div><button class="btn sm" data-ts="${s.ts}">Restaurar</button></div>`;
+  }).join('') || `<div class="muted" style="font-size:13.5px">Todavía no hay copias automáticas.</div>`;
+  const m=openModal(`
+    <div class="mhead"><h3>Respaldo de tus datos</h3><button class="icon-btn" id="xDat" aria-label="Cerrar">✕</button></div>
+    <p>Tus datos viven solo en este navegador. Un archivo de respaldo es la forma segura de no perderlos si borras los datos del navegador o cambias de equipo.</p>
+    <div class="body">
+      <div class="duo"><button class="btn primary" id="dExp">Exportar respaldo</button><button class="btn" id="dImp">Importar respaldo</button></div>
+      <button class="btn" id="dCsv">Exportar movimientos a Excel (CSV)</button>
+      <div class="muted" style="font-size:13px">${S.lastExport?'Último respaldo exportado: '+fdate(S.lastExport,true)+'.':'Aún no has exportado ningún respaldo.'}</div>
+      <div><b>Copias automáticas</b>
+        <div class="muted" style="font-size:13px;margin:4px 0 10px">Se guarda una copia al comenzar cada día y antes de importar o restaurar (las últimas 8). Sirven para deshacer errores, pero viven en este mismo navegador: no reemplazan al archivo exportado.</div>
+        <div class="snaps">${rows}</div></div>
+    </div>`);
+  $('#dExp',m.el).onclick=doExportJSON;
+  $('#dImp',m.el).onclick=()=>{ m.close(); $('#fileImport').click(); };
+  $('#dCsv',m.el).onclick=exportCSV;
+  $('#xDat',m.el).onclick=()=>m.close();
+  $$('.snap [data-ts]',m.el).forEach(b=>b.onclick=()=>{
+    const s=snaps.find(x=>String(x.ts)===b.dataset.ts); if(!s) return;
+    m.close();
+    confirmDelete({title:'Restaurar copia automática',text:`Se reemplazarán tus datos actuales por la copia «${esc(s.label)}» del ${fdate(s.ts,true)}. Antes se guardará una copia de lo que tienes ahora.`,label:'Restaurar',swLabel:'Entiendo que se reemplazarán mis datos',onConfirm:()=>{
+      let o; try{ o=JSON.parse(s.data); }catch(_){ toast('Esa copia está dañada.'); return; }
+      replaceData(o,'Antes de restaurar');
+    }});
+  });
+}
+function renderBanners(){
+  const box=$('#bkBanner'); const now=Date.now();
+  const ref=S.lastExport||S.createdAt||now; const days=Math.floor((now-ref)/864e5);
+  const need=S.movs.length>0 && now>(S.snoozeUntil||0) && (S.lastExport?days>=14:days>=3);
+  if(!need){ box.innerHTML=''; return; }
+  box.innerHTML=`<div class="banner"><span class="grow"><b>${S.lastExport?`Hace ${days} días que no exportas un respaldo.`:'Aún no has exportado un respaldo.'}</b> Tus datos viven solo en este navegador; un archivo de respaldo evita perderlos si los borras o cambias de equipo.</span><span class="btns"><button class="btn sm primary" id="bkNow">Exportar ahora</button><button class="btn sm" id="bkLater">Recordármelo en una semana</button></span></div>`;
+  $('#bkNow').onclick=doExportJSON;
+  $('#bkLater').onclick=()=>{ S.snoozeUntil=Date.now()+7*864e5; save(); renderBanners(); };
+}
+
+/* ---------- App instalable (PWA) y aviso de nueva versión ---------- */
+let deferredInstall=null;
+function isStandalone(){ try{ return (window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches)||window.navigator.standalone===true; }catch(_){ return false; } }
+function showUpdate(w){
+  $('#updBanner').innerHTML=`<div class="banner info"><span class="grow"><b>Hay una versión nueva disponible.</b> Actualiza para usar las últimas mejoras; tus datos no se tocan.</span><span class="btns"><button class="btn sm primary" id="btnUpd">Actualizar ahora</button></span></div>`;
+  $('#btnUpd').onclick=()=>{ $('#btnUpd').disabled=true; w.postMessage({type:'SKIP_WAITING'}); };
+}
+function setupPWA(){
+  if(!/^https?:$/.test(location.protocol)) return;
+  window.addEventListener('beforeinstallprompt',e=>{ e.preventDefault(); deferredInstall=e; if(!isStandalone()) $('#btnInstall').hidden=false; });
+  window.addEventListener('appinstalled',()=>{ deferredInstall=null; $('#btnInstall').hidden=true; toast('App instalada.'); });
+  $('#btnInstall').onclick=async()=>{
+    if(!deferredInstall) return;
+    deferredInstall.prompt();
+    try{ await deferredInstall.userChoice; }catch(_){}
+    deferredInstall=null; $('#btnInstall').hidden=true;
+  };
+  if(!('serviceWorker' in navigator)) return;
+  navigator.serviceWorker.register('./sw.js').then(reg=>{
+    if(reg.waiting && navigator.serviceWorker.controller) showUpdate(reg.waiting);
+    reg.addEventListener('updatefound',()=>{
+      const nw=reg.installing; if(!nw) return;
+      nw.addEventListener('statechange',()=>{ if(nw.state==='installed' && navigator.serviceWorker.controller) showUpdate(nw); });
+    });
+    setInterval(()=>reg.update().catch(()=>{}),30*60*1000);
+    document.addEventListener('visibilitychange',()=>{ if(!document.hidden) reg.update().catch(()=>{}); });
+  }).catch(()=>{});
+  let reloading=false;
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{ if(reloading) return; reloading=true; location.reload(); });
+}
 
 /* =========================================================
    Inicio
    ========================================================= */
 mkFmt(); applyTheme(); applySide(); bindSim();
 $('#curSel').value=S.currency;
+if(S.jars.length||S.movs.length) pushSnap('Inicio del día',true);
+try{ if(navigator.storage&&navigator.storage.persist) navigator.storage.persist(); }catch(_){}
+save();
 render();
-runIncomes(false);
-setInterval(()=>runIncomes(true),60000);
-document.addEventListener('visibilitychange',()=>{ if(!document.hidden) runIncomes(false); });
+runAll(false);
+let snapDay=toDateInput(Date.now());
+setInterval(()=>{ const t=toDateInput(Date.now()); if(t!==snapDay){ snapDay=t; if(S.jars.length||S.movs.length) pushSnap('Inicio del día',true); } runAll(true); },60000);
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden) runAll(false); });
+setupPWA();
 })();
 </script>
 </body>
