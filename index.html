@@ -276,6 +276,33 @@ body.side-open .side-tab{right:min(var(--side-w),100vw)}
   .icon-btn{width:38px;height:38px}
   .btn{min-height:42px}
 }
+/* ---------- v3: bancos ---------- */
+.bank{padding:22px;margin-top:18px;background:var(--surface2);position:relative;overflow:hidden}
+.bank::before{content:"";position:absolute;left:0;right:0;top:0;height:4px;background:var(--bc)}
+.bank-head{display:flex;align-items:center;gap:14px;flex-wrap:wrap;justify-content:space-between}
+.bank-title{display:flex;align-items:center;gap:8px;min-width:0;flex:1 1 220px}
+.bank-dot{width:12px;height:12px;border-radius:50%;background:var(--bc);flex:none}
+.bank-name{font-size:19px;font-weight:700;letter-spacing:-.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bank-in{font-size:18px !important;font-weight:700;padding:6px 10px !important;max-width:300px}
+.bank-total{text-align:right}
+.bank-total small{display:block;color:var(--muted);font-size:12px;font-weight:600}
+.bank-total b{font-size:26px;font-weight:750;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.bank-tools{display:flex;gap:2px}
+.bank-sub{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:14px 0 10px}
+.bank .distbar{margin-bottom:16px}
+.jar-adj{display:flex;gap:8px}
+.jar-adj .btn{flex:1}
+.icon-btn[disabled]{opacity:.3;pointer-events:none}
+.seg.three{grid-template-columns:repeat(3,1fr)}
+.seg.three .seg-thumb{width:calc((100% - 8px)/3)}
+.seg.three button.on{color:var(--text)}
+.chip b{font-variant-numeric:tabular-nums}
+@media(max-width:640px){
+  .bank{padding:16px;border-radius:20px}
+  .bank-name{font-size:17px}
+  .bank-total{text-align:left;order:3;width:100%}
+  .bank-total b{font-size:24px}
+}
 </style>
 </head>
 <body>
@@ -310,6 +337,7 @@ body.side-open .side-tab{right:min(var(--side-w),100vw)}
       <label class="field"><span>Monto</span>
         <div class="money"><i id="curSym">$</i><input id="amount" class="money-in" inputmode="decimal" placeholder="0"></div>
       </label>
+      <label class="field" id="bankPickWrap" hidden><span>Ingresar al banco</span><select id="bankPick"></select></label>
       <label class="field" id="jarPickWrap" hidden><span>Retirar de la alcancía</span><select id="jarPick"></select></label>
       <label class="field" id="catWrap" hidden><span>Categoría <em>(opcional)</em></span><input id="cat" maxlength="24" list="catList" autocomplete="off" placeholder="Ej.: Comida, Transporte, Ocio…"></label>
       <datalist id="catList"></datalist>
@@ -321,15 +349,13 @@ body.side-open .side-tab{right:min(var(--side-w),100vw)}
 
   <section id="jarsSection">
     <div class="sec-head">
-      <h2>Alcancías</h2>
+      <div><h2>Bancos y alcancías</h2><div class="muted" style="font-size:13.5px;margin-top:2px">Cada banco tiene sus propias alcancías y porcentajes. También puedes meter o sacar dinero de una alcancía directamente.</div></div>
       <div class="sec-actions">
-        <span id="distChip"></span>
         <button class="btn sm" id="btnMove">⇄ Mover dinero</button>
-        <button class="btn sm primary" id="btnAddJar">+ Nueva alcancía</button>
+        <button class="btn sm primary" id="btnAddBank">+ Nuevo banco</button>
       </div>
     </div>
-    <div class="distbar" id="distBarTop"></div>
-    <div class="jars" id="jars"></div>
+    <div id="banks"></div>
   </section>
 
   <section id="goalsSection">
@@ -426,7 +452,7 @@ const FREQ = {
 const PALETTE = ['#1456d6','#0c9250','#e8710a','#8e44ad','#d63a7e','#0097a7','#b59a00','#5c6bc0','#e53935','#00897b'];
 
 const defaults = () => ({
-  v:1, theme:null, currency:'CLP', jars:[], movs:[], incomes:[], expenses:[], goals:[], lastExport:0, snoozeUntil:0, createdAt:Date.now(),
+  v:1, theme:null, currency:'CLP', banks:[], bankCount:0, jars:[], movs:[], incomes:[], expenses:[], goals:[], lastExport:0, snoozeUntil:0, createdAt:Date.now(),
   sideOpen: window.innerWidth >= 1300, range:'mes', movFilter:'all', movLimit:30, jarCount:0,
   sim:{sign:'in', amount:'', freq:'mensual', horizon:12, unit:'meses', rate:'', fixed:true}
 });
@@ -531,19 +557,42 @@ function iconFor(name){
 /* =========================================================
    Lógica del dinero
    ========================================================= */
-const regular = () => S.jars.filter(j=>!j.special);
-const sumPct = () => Math.round(regular().reduce((a,j)=>a+(+j.pct||0),0)*100)/100;
+/* ---------- v3: bancos ---------- */
+const BANK_COLORS=['#4f3fc4','#0c9250','#e8710a','#d63a7e','#0097a7','#b59a00','#5c6bc0','#e53935'];
+const rd2 = x => Math.round(x*100)/100;
+const bankById = id => S.banks.find(b=>b.id===id);
+const jarsOf = bankId => S.jars.filter(j=>j.bankId===bankId);
+const regular = bankId => S.jars.filter(j=>!j.special && j.bankId===bankId);
+const sumPct = bankId => rd2(regular(bankId).reduce((a,j)=>a+(+j.pct||0),0));
 const total = () => r(S.jars.reduce((a,j)=>a+j.balance,0));
+const bankTotal = bankId => r(jarsOf(bankId).reduce((a,j)=>a+j.balance,0));
 const jarById = id => S.jars.find(j=>j.id===id);
+const jarLabel = j => { const b=bankById(j.bankId); return (S.banks.length>1&&b ? b.name+' · ' : '')+j.name; };
 
-function ensureSobrante(){
-  let j = S.jars.find(x=>x.special);
-  if(!j){ j = {id:uid(),name:'Sobrante',pct:0,balance:0,special:true,color:'#c98a00'}; S.jars.push(j); }
+/* Datos de versiones anteriores: las alcancías existentes pasan a un banco llamado «Principal» */
+function migrate(){
+  ['jars','movs','incomes','expenses','goals','banks'].forEach(k=>{ if(!Array.isArray(S[k])) S[k]=[]; });
+  if(!S.bankCount) S.bankCount=S.banks.length;
+  if(S.jars.length && !S.banks.length){
+    S.banks.push({id:uid(),name:'Principal',color:BANK_COLORS[0]});
+    S.bankCount=Math.max(S.bankCount,1);
+  }
+  const first=S.banks[0];
+  S.jars.forEach(j=>{ if(!j.bankId||!bankById(j.bankId)) j.bankId=first?first.id:null; });
+  S.incomes.forEach(i=>{ if(!i.bankId||!bankById(i.bankId)) i.bankId=first?first.id:null; });
+}
+
+/* Cada banco tiene su propio «Sobrante» */
+function ensureSobrante(bankId){
+  const id = bankId && bankById(bankId) ? bankId : (S.banks[0]&&S.banks[0].id);
+  if(!id) return null;
+  let j = S.jars.find(x=>x.special && x.bankId===id);
+  if(!j){ j = {id:uid(),name:'Sobrante',pct:0,balance:0,special:true,color:'#c98a00',bankId:id}; S.jars.push(j); }
   return j;
 }
-function planDeposit(amount){
-  const sp = sumPct();
-  const shares = regular().filter(j=>j.pct>0).map(j=>({jar:j,amt:fl(amount*j.pct/100)}));
+function planDeposit(amount,bankId){
+  const sp = sumPct(bankId);
+  const shares = regular(bankId).filter(j=>j.pct>0).map(j=>({jar:j,amt:fl(amount*j.pct/100)}));
   const used = r(shares.reduce((a,s)=>a+s.amt,0));
   let left = r(amount-used);
   if(Math.abs(sp-100)<1e-9 && left>0 && shares.length){
@@ -552,19 +601,27 @@ function planDeposit(amount){
   }
   return {shares:shares.filter(s=>s.amt>0), left, sp};
 }
-function applyDeposit(amount,{note='',ts=Date.now(),auto=false}={}){
-  const p = planDeposit(amount);
+function applyDeposit(amount,{note='',ts=Date.now(),auto=false,bankId}={}){
+  const bank = bankById(bankId) || S.banks[0]; if(!bank) return false;
+  const p = planDeposit(amount,bank.id);
   if(p.sp>100.0001) return false;
   const split = [];
   p.shares.forEach(s=>{ s.jar.balance = r(s.jar.balance+s.amt); split.push({id:s.jar.id,name:s.jar.name,amt:s.amt}); });
-  if(p.left>0){ const sob = ensureSobrante(); sob.balance = r(sob.balance+p.left); split.push({id:sob.id,name:sob.name,amt:p.left}); }
-  S.movs.push({id:uid(),ts,type:'in',amount:r(amount),note,auto,split});
+  if(p.left>0){ const sob = ensureSobrante(bank.id); sob.balance = r(sob.balance+p.left); split.push({id:sob.id,name:sob.name,amt:p.left}); }
+  S.movs.push({id:uid(),ts,type:'in',amount:r(amount),note,auto,split,bankId:bank.id,bankName:bank.name});
   return true;
+}
+/* Meter dinero directo a una alcancía, sin repartir por porcentajes */
+function directAdd(j,amt,note){
+  j.balance = r(j.balance+amt);
+  const bank = bankById(j.bankId);
+  S.movs.push({id:uid(),ts:Date.now(),type:'in',amount:r(amt),note,auto:false,direct:true,split:[{id:j.id,name:j.name,amt:r(amt)}],bankId:j.bankId,bankName:bank?bank.name:''});
 }
 function applyWithdraw(jarId,amount,note,cat='',{ts=Date.now(),auto=false}={}){
   const j = jarById(jarId); if(!j || amount>j.balance+1e-9) return false;
   j.balance = r(j.balance-amount);
-  S.movs.push({id:uid(),ts,type:'out',amount:r(amount),jarId:j.id,jarName:j.name,note,cat,auto});
+  const bank = bankById(j.bankId);
+  S.movs.push({id:uid(),ts,type:'out',amount:r(amount),jarId:j.id,jarName:j.name,note,cat,auto,bankId:j.bankId,bankName:bank?bank.name:''});
   return true;
 }
 function applyMove(fromId,splits){ // splits: [{id,amt}]
@@ -572,9 +629,10 @@ function applyMove(fromId,splits){ // splits: [{id,amt}]
   const sum = r(splits.reduce((a,s)=>a+s.amt,0));
   if(sum<=0 || sum>from.balance+1e-9) return false;
   const out = [];
-  splits.forEach(s=>{ const t=jarById(s.id); if(!t||s.amt<=0) return; t.balance=r(t.balance+s.amt); out.push({id:t.id,name:t.name,amt:s.amt}); });
+  const fromLabel = jarLabel(from);
+  splits.forEach(s=>{ const t=jarById(s.id); if(!t||s.amt<=0) return; t.balance=r(t.balance+s.amt); out.push({id:t.id,name:jarLabel(t),amt:s.amt}); });
   from.balance = r(from.balance-sum);
-  S.movs.push({id:uid(),ts:Date.now(),type:'move',amount:sum,fromId:from.id,fromName:from.name,split:out});
+  S.movs.push({id:uid(),ts:Date.now(),type:'move',amount:sum,fromId:from.id,fromName:fromLabel,split:out});
   return true;
 }
 
@@ -600,8 +658,8 @@ function runIncomes(silent){
     if(!inc.active) continue;
     let guard=0;
     while(inc.next<=now && guard<500){
-      if(sumPct()>100.0001){ blocked=true; break; }
-      applyDeposit(inc.amount,{note:'Ingreso fijo · '+inc.name,ts:inc.next,auto:true});
+      if(sumPct(inc.bankId)>100.0001){ blocked=true; break; }
+      applyDeposit(inc.amount,{note:'Ingreso fijo · '+inc.name,ts:inc.next,auto:true,bankId:inc.bankId});
       inc.next = advance(inc); count++; guard++;
     }
   }
@@ -640,7 +698,8 @@ function undoMov(id){
     const parts=m.split||[]; const err=checkParts(parts); if(err) return {ok:false,msg:err};
     parts.forEach(s=>{ const j=jarById(s.id); j.balance=r(j.balance-s.amt); });
   }else if(m.type==='out'){
-    const j=jarById(m.jarId)||S.jars.find(x=>x.name===m.jarName)||ensureSobrante();
+    const j=jarById(m.jarId)||S.jars.find(x=>x.name===m.jarName&&(!m.bankId||x.bankId===m.bankId))||ensureSobrante(m.bankId);
+    if(!j) return {ok:false,msg:'La alcancía de este retiro ya no existe, así que no se puede deshacer.'};
     j.balance=r(j.balance+m.amount);
   }else{
     const parts=m.split||[];
@@ -674,9 +733,10 @@ function runExpenses(silent){
 function runAll(silent){ runIncomes(silent); runExpenses(silent); }
 
 function goalInfo(g){
-  const jar = g.jarId==='total' ? null : jarById(g.jarId);
-  const cur = g.jarId==='total' ? total() : (jar?jar.balance:0);
-  return {jar,cur,left:r(Math.max(0,g.target-cur)),done:g.target>0&&cur>=g.target,pct:g.target>0?Math.max(0,Math.min(100,cur/g.target*100)):0};
+  const isBank = String(g.jarId).startsWith('bank:'); const bank = isBank ? bankById(g.jarId.slice(5)) : null;
+  const jar = (g.jarId==='total'||isBank) ? null : jarById(g.jarId);
+  const cur = g.jarId==='total' ? total() : isBank ? (bank?bankTotal(bank.id):0) : (jar?jar.balance:0);
+  return {jar,bank,cur,left:r(Math.max(0,g.target-cur)),done:g.target>0&&cur>=g.target,pct:g.target>0?Math.max(0,Math.min(100,cur/g.target*100)):0};
 }
 
 /* Copias automáticas dentro del navegador */
@@ -765,7 +825,7 @@ let mode = 'in', editingId = null, shownTotal = 0;
 
 function render(){
   mkFmt();
-  renderTotal(); renderForm(); renderJars(); renderDist(); renderGoals(); renderIncomes(); renderExpenses(); renderMovs(); renderStats(); renderBanners();
+  renderTotal(); renderForm(); renderBanks(); renderGoals(); renderIncomes(); renderExpenses(); renderMovs(); renderStats(); renderBanners();
 }
 function animateNumber(el,from,to){
   cancelAnimationFrame(el._raf);
@@ -777,44 +837,51 @@ function animateNumber(el,from,to){
 }
 function renderTotal(){
   const t = total(); animateNumber($('#total'),shownTotal,t); shownTotal=t;
-  const n = S.jars.length;
-  $('#totalSub').textContent = n ? `Repartido en ${n} ${n===1?'alcancía':'alcancías'}` : 'Aún no tienes alcancías. Crea la primera más abajo.';
+  const n = S.jars.length, nb = S.banks.length;
+  $('#totalSub').textContent = !nb ? 'Aún no tienes bancos. Crea el primero más abajo.' : !n ? 'Crea tu primera alcancía dentro de un banco.' : `Repartido en ${n} ${n===1?'alcancía':'alcancías'}`+(nb>1?` de ${nb} bancos`:'');
   $('#curSym').textContent = sym();
 }
 
 /* ---------- Formulario ingresar / retirar ---------- */
+function selectedBankId(){ return S.banks.length===1 ? S.banks[0].id : ($('#bankPick').value || (S.banks[0]&&S.banks[0].id)); }
 function renderForm(){
   $('#modeSeg').dataset.mode = mode;
   $$('#modeSeg button').forEach(b=>b.classList.toggle('on',b.dataset.mode===mode));
   $('#jarPickWrap').hidden = mode!=='out';
   $('#catWrap').hidden = mode!=='out'; if(mode==='out') fillCatList();
+  $('#bankPickWrap').hidden = !(mode==='in' && S.banks.length>1);
   const btn = $('#opBtn');
   btn.textContent = mode==='in' ? 'Registrar ingreso' : 'Registrar retiro';
   btn.classList.toggle('primary',mode==='in'); btn.classList.toggle('danger',mode==='out');
   const sel = $('#jarPick'), prev = sel.value;
-  sel.innerHTML = S.jars.length ? S.jars.map(j=>`<option value="${j.id}">${esc(j.name)} — ${fmt(j.balance)}</option>`).join('') : '<option value="">No hay alcancías</option>';
+  sel.innerHTML = S.jars.length ? S.jars.map(j=>`<option value="${j.id}">${esc(jarLabel(j))} — ${fmt(j.balance)}</option>`).join('') : '<option value="">No hay alcancías</option>';
   if(prev && jarById(prev)) sel.value = prev;
+  const bs = $('#bankPick'), bprev = bs.value;
+  bs.innerHTML = S.banks.map(b=>`<option value="${b.id}">${esc(b.name)} — ${fmt(bankTotal(b.id))}</option>`).join('');
+  if(bprev && bankById(bprev)) bs.value = bprev;
   renderPreview();
 }
 function renderPreview(){
   const box = $('#preview'); const amt = parseAmt($('#amount').value);
   if(mode==='in'){
+    if(!S.banks.length){ box.innerHTML = `<span class="chip warn">Primero crea un banco más abajo</span>`; return; }
     if(!(amt>0)){ box.innerHTML=''; return; }
-    const p = planDeposit(amt);
-    if(p.sp>100.0001){ box.innerHTML = `<span class="chip err">Tus porcentajes suman ${fmtPct(p.sp)} %</span>`; return; }
+    const p = planDeposit(amt,selectedBankId());
+    if(p.sp>100.0001){ box.innerHTML = `<span class="chip err">Los porcentajes de ese banco suman ${fmtPct(p.sp)} %</span>`; return; }
     let h = p.shares.map(s=>`<span class="chip"><i style="background:${s.jar.color}"></i>${esc(s.jar.name)} <b>${fmt(s.amt)}</b></span>`).join('');
     if(p.left>0) h += `<span class="chip warn">Sobrante <b>${fmt(p.left)}</b></span>`;
     box.innerHTML = h;
   }else{
     const j = jarById($('#jarPick').value);
     if(!j){ box.innerHTML=''; return; }
-    if(!(amt>0)){ box.innerHTML = `<span>Disponible en «${esc(j.name)}»: <b>${fmt(j.balance)}</b></span>`; return; }
-    box.innerHTML = amt>j.balance ? `<span class="chip err">Supera el saldo disponible (${fmt(j.balance)})</span>` : `<span>Quedarían <b>${fmt(r(j.balance-amt))}</b> en «${esc(j.name)}»</span>`;
+    if(!(amt>0)){ box.innerHTML = `<span>Disponible en «${esc(jarLabel(j))}»: <b>${fmt(j.balance)}</b></span>`; return; }
+    box.innerHTML = amt>j.balance ? `<span class="chip err">Supera el saldo disponible (${fmt(j.balance)})</span>` : `<span>Quedarían <b>${fmt(r(j.balance-amt))}</b> en «${esc(jarLabel(j))}»</span>`;
   }
 }
 $('#modeSeg').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; mode=b.dataset.mode; renderForm(); });
 $('#amount').addEventListener('input',renderPreview);
 $('#jarPick').addEventListener('change',renderPreview);
+$('#bankPick').addEventListener('change',renderPreview);
 $('#opForm').addEventListener('submit',e=>{
   e.preventDefault();
   const amtEl=$('#amount'), amt=parseAmt(amtEl.value), note=$('#note').value.trim();
@@ -825,29 +892,32 @@ function afterOp(msg){ $('#amount').value=''; $('#note').value=''; $('#cat').val
 function submitOut(amt,note){
   const id = $('#jarPick').value; const j = jarById(id);
   if(!j){ toast('Primero crea una alcancía de la cual retirar.'); return; }
-  if(amt>j.balance){ toast(`«${j.name}» solo tiene ${fmt(j.balance)} disponible.`); return; }
+  if(amt>j.balance){ toast(`«${jarLabel(j)}» solo tiene ${fmt(j.balance)} disponible.`); return; }
   applyWithdraw(id,amt,note,$('#cat').value.trim()); afterOp('Retiro registrado.');
 }
 function submitIn(amt,note){
-  const p = planDeposit(amt);
-  const commit = () => { applyDeposit(amt,{note}); afterOp('Ingreso registrado y distribuido.'); };
+  if(!S.banks.length){ toast('Primero crea un banco (más abajo) para poder ingresar dinero.'); return; }
+  const bid = selectedBankId(); const bank = bankById(bid); const multi = S.banks.length>1;
+  const p = planDeposit(amt,bid);
+  const commit = () => { applyDeposit(amt,{note,bankId:bid}); afterOp(multi?`Ingreso registrado en «${bank.name}».`:'Ingreso registrado y distribuido.'); };
+  const whose = multi ? `de «${esc(bank.name)}»` : 'de tus alcancías';
   if(p.sp>100.0001){
     const m = openModal(`
       <div class="mhead"><h3>Los porcentajes superan el 100 %</h3></div>
-      <p>Tus alcancías suman actualmente un <b>${fmtPct(p.sp)} %</b>, por lo que no es posible repartir este ingreso sin exceder el monto disponible.</p>
+      <p>Las alcancías ${whose} suman actualmente un <b>${fmtPct(p.sp)} %</b>, por lo que no es posible repartir este ingreso sin exceder el monto disponible.</p>
       <div class="callout err">Ajusta los porcentajes para que sumen 100 % o menos y vuelve a registrar el ingreso.</div>
       <div class="foot"><button class="btn primary" id="okOver">Entendido</button></div>`);
     $('#okOver',m.el).onclick=()=>m.close();
     return;
   }
   if(p.left>0){
-    const none = regular().length===0;
+    const none = regular(bid).length===0;
     const m = openModal(`
       <div class="mhead"><h3>${none?'Aún no hay alcancías para distribuir':'Las alcancías no suman el 100 %'}</h3><button class="icon-btn" id="xUnder" aria-label="Cerrar">✕</button></div>
       <p>${none
-        ? `Todavía no has creado alcancías, por lo que el monto completo (<b>${fmt(p.left)}</b>) no tiene un destino asignado.`
-        : `Tus alcancías suman actualmente un <b>${fmtPct(p.sp)} %</b> del ingreso. El <b>${fmtPct(r(100-p.sp))} %</b> restante, equivalente a <b>${fmt(p.left)}</b>, no tiene un destino definido.`}</p>
-      <div class="callout">Al cerrar este aviso, ese excedente se depositará en la alcancía «Sobrante», desde donde podrás repartirlo entre las demás cuando lo prefieras.</div>
+        ? `Todavía no has creado alcancías ${multi?`en «${esc(bank.name)}»`:''}, por lo que el monto completo (<b>${fmt(p.left)}</b>) no tiene un destino asignado.`
+        : `Las alcancías ${whose} suman actualmente un <b>${fmtPct(p.sp)} %</b> del ingreso. El <b>${fmtPct(rd2(100-p.sp))} %</b> restante, equivalente a <b>${fmt(p.left)}</b>, no tiene un destino definido.`}</p>
+      <div class="callout">Al cerrar este aviso, ese excedente se depositará en la alcancía «Sobrante»${multi?` de «${esc(bank.name)}»`:''}, desde donde podrás repartirlo entre las demás cuando lo prefieras.</div>
       <div class="foot"><button class="btn ghost" id="noUnder">Cancelar ingreso</button><button class="btn primary" id="okUnder">Cerrar</button></div>`,{sticky:true});
     const go = () => { m.close(); commit(); };
     $('#xUnder',m.el).onclick=go; $('#okUnder',m.el).onclick=go;
@@ -857,82 +927,148 @@ function submitIn(amt,note){
   commit();
 }
 
-/* ---------- Alcancías ---------- */
-function renderJars(){
-  const grid = $('#jars'); const t = total();
-  const cards = S.jars.map(j=>{
-    const ico = iconFor(j.name);
-    const share = t>0 ? Math.max(0,Math.min(100,j.balance/t*100)) : 0;
-    const nameHtml = editingId===j.id
-      ? `<input class="name-in" maxlength="28" value="${esc(j.name)}">`
-      : `<span title="${esc(j.name)}">${esc(j.name)}</span>`;
-    const canDelete = !j.special || j.balance===0;
-    return `<article class="card jar ${j.special?'special':''}" data-id="${j.id}" style="--jc:${j.color}">
-      <div class="jar-top">
-        <button class="grip" title="Arrastra para reordenar" aria-label="Reordenar">⠿</button>
-        <span class="mv"><button class="icon-btn" data-act="left" title="Mover antes" aria-label="Mover antes">‹</button><button class="icon-btn" data-act="right" title="Mover después" aria-label="Mover después">›</button></span>
-        <div class="jar-name">${nameHtml}</div>
-        ${j.special?'':`<button class="icon-btn" data-act="rename" title="Cambiar nombre">✎</button>`}
-        ${canDelete?`<button class="icon-btn del" data-act="del" title="Eliminar alcancía">✕</button>`:''}
+/* ---------- Bancos y alcancías ---------- */
+let editingBankId = null;
+
+function distChip(b){
+  const sp=sumPct(b.id), regs=regular(b.id);
+  if(!regs.length) return `<span class="chip">Sin alcancías todavía</span>`;
+  if(Math.abs(sp-100)<1e-9) return `<span class="chip ok">Distribución completa · 100 %</span>`;
+  if(sp<100) return `<span class="chip warn">Asignado ${fmtPct(sp)} % · sin asignar ${fmtPct(rd2(100-sp))} %</span>`;
+  return `<span class="chip err">Excede el 100 %: suman ${fmtPct(sp)} %</span>`;
+}
+function distBar(b){
+  const sp=sumPct(b.id), rest=Math.max(0,rd2(100-sp));
+  return regular(b.id).filter(j=>j.pct>0).map(j=>`<i style="flex:${j.pct};background:${j.color}" title="${esc(j.name)} · ${fmtPct(j.pct)} %"></i>`).join('') + (rest>0?`<i class="rest" style="flex:${rest}"></i>`:'');
+}
+function refreshDist(bankId){
+  const sec=$(`.bank[data-bank="${bankId}"]`), b=bankById(bankId); if(!sec||!b) return;
+  $('.dist-chip',sec).innerHTML=distChip(b);
+  const bar=$('.distbar',sec); bar.innerHTML=distBar(b); bar.style.display=regular(b.id).length?'':'none';
+}
+function jarCard(j,bt){
+  const ico = iconFor(j.name);
+  const share = bt>0 ? Math.max(0,Math.min(100,j.balance/bt*100)) : 0;
+  const nameHtml = editingId===j.id
+    ? `<input class="name-in" maxlength="28" value="${esc(j.name)}">`
+    : `<span title="${esc(j.name)}">${esc(j.name)}</span>`;
+  const canDelete = !j.special || j.balance===0;
+  return `<article class="card jar ${j.special?'special':''}" data-id="${j.id}" style="--jc:${j.color}">
+    <div class="jar-top">
+      <button class="grip" title="Arrastra para reordenar" aria-label="Reordenar">⠿</button>
+      <span class="mv"><button class="icon-btn" data-act="left" title="Mover antes" aria-label="Mover antes">‹</button><button class="icon-btn" data-act="right" title="Mover después" aria-label="Mover después">›</button></span>
+      <div class="jar-name">${nameHtml}</div>
+      ${j.special?'':`<button class="icon-btn" data-act="rename" title="Cambiar nombre">✎</button>`}
+      ${canDelete?`<button class="icon-btn del" data-act="del" title="Eliminar alcancía">✕</button>`:''}
+    </div>
+    <div class="jar-amt">${ico?`<span class="jar-ico">${ico}</span>`:''}<span class="jar-val">${fmt(j.balance)}</span></div>
+    <div class="jar-share" title="${fmtPct(share)} % de este banco"><i style="width:${share}%"></i></div>
+    <div class="jar-bot">
+      ${j.special
+        ? `<span>Sin porcentaje · dinero sin asignar</span><button class="btn sm" data-act="distribute" ${j.balance>0?'':'disabled'}>Distribuir</button>`
+        : `<span class="pct"><span>Recibe</span><input type="number" class="pct-in" min="0" max="100" step="0.01" value="${j.pct}"><span>%</span></span><span>${fmtPct(share)} % del banco</span>`}
+    </div>
+    <div class="jar-adj"><button class="btn sm" data-act="add">+ Meter</button><button class="btn sm" data-act="sub" ${j.balance>0?'':'disabled'}>− Sacar</button></div>
+  </article>`;
+}
+function bankHTML(b,bi){
+  const bt=bankTotal(b.id), jars=jarsOf(b.id), hasRegs=regular(b.id).length>0;
+  const title = editingBankId===b.id
+    ? `<input class="bank-in" maxlength="30" value="${esc(b.name)}">`
+    : `<span class="bank-name" title="${esc(b.name)}">${esc(b.name)}</span>`;
+  return `<section class="card bank" data-bank="${b.id}" style="--bc:${b.color}">
+    <div class="bank-head">
+      <div class="bank-title"><span class="bank-dot"></span>${title}<button class="icon-btn" data-bact="rename" title="Cambiar nombre">✎</button></div>
+      <div class="bank-total"><small>Total en este banco</small><b>${fmt(bt)}</b></div>
+      <div class="bank-tools">
+        <button class="icon-btn" data-bact="up" title="Subir" aria-label="Subir banco" ${bi===0?'disabled':''}>↑</button>
+        <button class="icon-btn" data-bact="down" title="Bajar" aria-label="Bajar banco" ${bi===S.banks.length-1?'disabled':''}>↓</button>
+        <button class="icon-btn del" data-bact="del" title="Eliminar banco" aria-label="Eliminar banco">✕</button>
       </div>
-      <div class="jar-amt">${ico?`<span class="jar-ico">${ico}</span>`:''}<span class="jar-val">${fmt(j.balance)}</span></div>
-      <div class="jar-share" title="${fmtPct(share)} % de tu total"><i style="width:${share}%"></i></div>
-      <div class="jar-bot">
-        ${j.special
-          ? `<span>Sin porcentaje · dinero sin asignar</span><button class="btn sm" data-act="distribute" ${j.balance>0?'':'disabled'}>Distribuir</button>`
-          : `<span class="pct"><span>Recibe</span><input type="number" class="pct-in" min="0" max="100" step="0.01" value="${j.pct}"><span>%</span></span><span>${fmtPct(share)} % del total</span>`}
-      </div>
-    </article>`;
-  }).join('');
-  grid.innerHTML = cards + `<button class="jar-add" id="jarAddCard"><div><span>+</span>Nueva alcancía</div></button>`;
-  if(editingId){ const inp=$('.name-in',grid); if(inp){ inp.focus(); inp.select(); } }
+    </div>
+    <div class="bank-sub"><span class="dist-chip">${distChip(b)}</span><button class="btn sm primary" data-bact="addjar">+ Nueva alcancía</button></div>
+    <div class="distbar" style="${hasRegs?'':'display:none'}">${distBar(b)}</div>
+    <div class="jars" data-bank="${b.id}">${jars.map(j=>jarCard(j,bt)).join('')}<button class="jar-add" data-bact="addjar"><div><span>+</span>Nueva alcancía</div></button></div>
+  </section>`;
+}
+function renderBanks(){
+  const box = $('#banks');
+  if(!S.banks.length){
+    box.innerHTML = `<div class="card empty" style="margin-top:14px"><b style="color:var(--text)">Empieza creando tu primer banco.</b><br>Puede ser un banco, una cuenta, efectivo o una billetera digital: cualquier lugar donde tengas dinero. Dentro de cada uno armas tus alcancías con sus porcentajes.<br><button class="btn primary" id="emptyAddBank" style="margin-top:14px">+ Nuevo banco</button></div>`;
+  }else{
+    box.innerHTML = S.banks.map(bankHTML).join('');
+    const inp = $('.name-in',box) || $('.bank-in',box); if(inp){ inp.focus(); inp.select(); }
+  }
   $('#btnMove').disabled = S.jars.length<2;
 }
-function renderDist(){
-  const sp = sumPct(), regs = regular().filter(j=>j.pct>0), rest = Math.max(0,100-sp);
-  $('#distBarTop').innerHTML = regs.map(j=>`<i style="flex:${j.pct};background:${j.color}" title="${esc(j.name)} · ${fmtPct(j.pct)} %"></i>`).join('') + (rest>0?`<i class="rest" style="flex:${rest}"></i>`:'');
-  let chip='';
-  if(!regular().length) chip='';
-  else if(Math.abs(sp-100)<1e-9) chip=`<span class="chip ok">Distribución completa · 100 %</span>`;
-  else if(sp<100) chip=`<span class="chip warn">Asignado ${fmtPct(sp)} % · sin asignar ${fmtPct(r(100-sp))} %</span>`;
-  else chip=`<span class="chip err">Excede el 100 %: suman ${fmtPct(sp)} %</span>`;
-  $('#distChip').innerHTML = chip;
-  $('#distBarTop').style.display = regular().length ? '' : 'none';
-}
 
-const jarsGrid = $('#jars');
-jarsGrid.addEventListener('click',e=>{
-  if(e.target.closest('#jarAddCard')){ openAddJar(); return; }
+const banksBox = $('#banks');
+banksBox.addEventListener('click',e=>{
+  if(e.target.closest('#emptyAddBank')){ openAddBank(); return; }
+  const ba = e.target.closest('[data-bact]');
+  if(ba){
+    const sec = ba.closest('.bank'); const b = sec && bankById(sec.dataset.bank); if(!b) return;
+    const act = ba.dataset.bact;
+    if(act==='rename'){ editingBankId=b.id; renderBanks(); }
+    else if(act==='addjar') openAddJar(b.id);
+    else if(act==='del') openDeleteBank(b);
+    else if(act==='up'||act==='down'){
+      const i=S.banks.indexOf(b), k=act==='up'?i-1:i+1; if(k<0||k>=S.banks.length) return;
+      [S.banks[i],S.banks[k]]=[S.banks[k],S.banks[i]]; save(); renderBanks();
+    }
+    return;
+  }
   const card = e.target.closest('.jar'); const btn = e.target.closest('[data-act]');
   if(!card||!btn) return;
   const j = jarById(card.dataset.id); if(!j) return;
   const act = btn.dataset.act;
-  if(act==='rename'){ editingId=j.id; renderJars(); }
+  if(act==='rename'){ editingId=j.id; renderBanks(); }
   else if(act==='del') askDeleteJar(j);
   else if(act==='distribute') openDistribute(j);
-  else if(act==='left'||act==='right'){ const i=S.jars.indexOf(j), k=act==='left'?i-1:i+1; if(k<0||k>=S.jars.length) return; [S.jars[i],S.jars[k]]=[S.jars[k],S.jars[i]]; save(); renderJars(); }
+  else if(act==='add') openAdjust(j,'add');
+  else if(act==='sub') openAdjust(j,'sub');
+  else if(act==='left'||act==='right'){
+    const sibs=S.jars.filter(x=>x.bankId===j.bankId), si=sibs.indexOf(j), sk=act==='left'?si-1:si+1;
+    if(sk<0||sk>=sibs.length) return;
+    const a=S.jars.indexOf(j), c=S.jars.indexOf(sibs[sk]);
+    [S.jars[a],S.jars[c]]=[S.jars[c],S.jars[a]]; save(); renderBanks();
+  }
 });
-jarsGrid.addEventListener('change',e=>{
+banksBox.addEventListener('change',e=>{
   if(!e.target.classList.contains('pct-in')) return;
   const j = jarById(e.target.closest('.jar').dataset.id); if(!j) return;
   let v = parseFloat(String(e.target.value).replace(',','.')); if(isNaN(v)) v=0;
-  v = Math.max(0,Math.min(100,Math.round(v*100)/100));
-  j.pct = v; e.target.value = v; save(); renderDist(); renderPreview(); renderIncomes(); renderStats();
+  v = Math.max(0,Math.min(100,rd2(v)));
+  j.pct = v; e.target.value = v; save(); refreshDist(j.bankId); renderPreview(); renderIncomes(); renderStats();
 });
 function commitName(inp){
   if(editingId===null) return;
   const id=editingId; editingId=null;
   const j=jarById(id); const v=inp.value.trim();
-  if(j && v && v!==j.name){ j.name=v; save(); render(); } else renderJars();
+  if(j && v && v!==j.name){ j.name=v; save(); render(); } else renderBanks();
 }
-jarsGrid.addEventListener('keydown',e=>{
-  if(!e.target.classList.contains('name-in')) return;
-  if(e.key==='Enter'){ e.preventDefault(); commitName(e.target); }
-  if(e.key==='Escape'){ editingId=null; renderJars(); }
+function commitBankName(inp){
+  if(editingBankId===null) return;
+  const id=editingBankId; editingBankId=null;
+  const b=bankById(id); const v=inp.value.trim();
+  if(b && v && v!==b.name){ b.name=v; save(); render(); } else renderBanks();
+}
+banksBox.addEventListener('keydown',e=>{
+  const c=e.target.classList;
+  if(c.contains('name-in')){
+    if(e.key==='Enter'){ e.preventDefault(); commitName(e.target); }
+    if(e.key==='Escape'){ editingId=null; renderBanks(); }
+  }else if(c.contains('bank-in')){
+    if(e.key==='Enter'){ e.preventDefault(); commitBankName(e.target); }
+    if(e.key==='Escape'){ editingBankId=null; renderBanks(); }
+  }
 });
-jarsGrid.addEventListener('focusout',e=>{ if(e.target.classList.contains('name-in')) commitName(e.target); });
+banksBox.addEventListener('focusout',e=>{
+  if(e.target.classList.contains('name-in')) commitName(e.target);
+  else if(e.target.classList.contains('bank-in')) commitBankName(e.target);
+});
 
-/* arrastrar para reordenar */
+/* arrastrar alcancías para reordenarlas dentro de su banco */
 let dragEl=null, lastMove=0;
 function flip(container,mutate){
   const els=[...container.children]; const first=new Map(els.map(x=>[x,x.getBoundingClientRect()]));
@@ -943,55 +1079,115 @@ function flip(container,mutate){
     if(dx||dy) x.animate([{transform:`translate(${dx}px,${dy}px)`},{transform:'none'}],{duration:240,easing:'cubic-bezier(.2,.8,.2,1)'});
   });
 }
-jarsGrid.addEventListener('mousedown',e=>{ const g=e.target.closest('.grip'); if(g) g.closest('.jar').draggable=true; });
-jarsGrid.addEventListener('dragstart',e=>{
+banksBox.addEventListener('mousedown',e=>{ const g=e.target.closest('.grip'); if(g) g.closest('.jar').draggable=true; });
+banksBox.addEventListener('dragstart',e=>{
   const c=e.target.closest&&e.target.closest('.jar'); if(!c||!c.draggable){ return; }
   dragEl=c; e.dataTransfer.effectAllowed='move'; try{ e.dataTransfer.setData('text/plain',c.dataset.id); }catch(_){}
   requestAnimationFrame(()=>c.classList.add('dragging'));
 });
-jarsGrid.addEventListener('dragover',e=>{
+banksBox.addEventListener('dragover',e=>{
   if(!dragEl) return; e.preventDefault();
-  const t=e.target.closest('.jar'); if(!t||t===dragEl) return;
+  const t=e.target.closest('.jar'); if(!t||t===dragEl||t.parentElement!==dragEl.parentElement) return;
   if(performance.now()-lastMove<200) return;
   const rect=t.getBoundingClientRect();
   const after = (e.clientY>rect.bottom-rect.height*0.35) || (e.clientX-rect.left>rect.width/2 && e.clientY>rect.top);
   const ref = after ? t.nextElementSibling : t;
   if(ref===dragEl||ref===dragEl.nextElementSibling) return;
   lastMove=performance.now();
-  flip(jarsGrid,()=>jarsGrid.insertBefore(dragEl,ref));
+  flip(dragEl.parentElement,()=>dragEl.parentElement.insertBefore(dragEl,ref));
 });
-jarsGrid.addEventListener('drop',e=>{ if(dragEl) e.preventDefault(); });
-jarsGrid.addEventListener('dragend',()=>{
+banksBox.addEventListener('drop',e=>{ if(dragEl) e.preventDefault(); });
+banksBox.addEventListener('dragend',()=>{
   if(!dragEl) return;
   dragEl.classList.remove('dragging'); dragEl.draggable=false;
-  const order=$$('.jar',jarsGrid).map(x=>x.dataset.id);
+  const order=$$('.jar',banksBox).map(x=>x.dataset.id);
   S.jars.sort((a,b)=>order.indexOf(a.id)-order.indexOf(b.id));
-  dragEl=null; save(); render();
+  dragEl=null; save(); renderBanks();
 });
 document.addEventListener('mouseup',()=>{ if(!dragEl) $$('.jar[draggable="true"]').forEach(x=>x.draggable=false); });
 
+/* ---------- Nuevo banco ---------- */
+$('#btnAddBank').onclick = openAddBank;
+function openAddBank(){
+  const m = openModal(`
+    <div class="mhead"><h3>Nuevo banco</h3><button class="icon-btn" id="xBk" aria-label="Cerrar">✕</button></div>
+    <p>Puede ser un banco, una cuenta, efectivo o una billetera digital: cualquier lugar donde tengas dinero. Después le agregas sus alcancías con sus porcentajes.</p>
+    <div class="body"><label class="field"><span>Nombre</span><input id="bkName" maxlength="30" placeholder="Ej.: Banco Estado, Efectivo, Mercado Pago…"></label></div>
+    <div class="foot"><button class="btn ghost" id="bkNo">Cancelar</button><button class="btn primary" id="bkOk">Crear banco</button></div>`);
+  const nm=$('#bkName',m.el); nm.focus();
+  const ok=()=>{
+    const name=nm.value.trim(); if(!name){ nm.focus(); toast('Ponle un nombre al banco.'); return; }
+    const color=BANK_COLORS[S.bankCount%BANK_COLORS.length]; S.bankCount++;
+    S.banks.push({id:uid(),name,color});
+    m.close(); save(); render(); toast('Banco creado. Ahora agrégale sus alcancías.');
+  };
+  $('#bkOk',m.el).onclick=ok; $('#bkNo',m.el).onclick=()=>m.close(); $('#xBk',m.el).onclick=()=>m.close();
+  m.el.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); ok(); } });
+}
+
+/* ---------- Eliminar banco ---------- */
+function openDeleteBank(b){
+  const jars=jarsOf(b.id), bt=bankTotal(b.id), others=S.banks.filter(x=>x.id!==b.id);
+  const ids=new Set(jars.map(j=>j.id));
+  const nGoals=S.goals.filter(g=>ids.has(g.jarId)||g.jarId==='bank:'+b.id).length;
+  const nExp=S.expenses.filter(x=>ids.has(x.jarId)).length;
+  const nInc=S.incomes.filter(i=>i.bankId===b.id).length;
+  const nReg=jars.filter(j=>!j.special).length;
+  const parts=[nReg?`${nReg} ${nReg===1?'alcancía':'alcancías'}`:'', nGoals?`${nGoals} ${nGoals===1?'meta':'metas'}`:'', nExp?`${nExp} ${nExp===1?'gasto fijo':'gastos fijos'}`:'', nInc?`${nInc} ${nInc===1?'ingreso fijo':'ingresos fijos'}`:''].filter(Boolean);
+  const what = parts.length ? `Se eliminarán también: ${parts.join(', ')}.` : 'Este banco no tiene alcancías.';
+  const money = bt>0 ? `<label class="field"><span>¿Qué hacemos con los ${fmt(bt)} de este banco?</span><select id="dbWhere" style="width:100%">${others.map(o=>`<option value="move:${o.id}">Moverlos a «${esc(o.name)}» (quedan en su Sobrante)</option>`).join('')}<option value="out">Registrarlos como retiro (el dinero ya no está en la app)</option></select></label>` : '';
+  const m = openModal(`
+    <div class="mhead"><h3>Eliminar «${esc(b.name)}»</h3></div>
+    <p>${what} Los movimientos que ya se registraron se conservan en el historial.</p>
+    <div class="body">${money}</div>
+    <div class="confirm-line" style="margin-top:14px"><label class="switch"><input type="checkbox" id="dbSw"><span></span></label><span>Confirmo que quiero eliminarlo</span></div>
+    <div class="foot"><button class="btn ghost" id="dbNo">Cancelar</button><button class="btn danger" id="dbYes" disabled>Eliminar banco</button></div>`);
+  const sw=$('#dbSw',m.el), yes=$('#dbYes',m.el);
+  sw.onchange=()=>yes.disabled=!sw.checked;
+  $('#dbNo',m.el).onclick=()=>m.close();
+  yes.onclick=()=>{
+    const where = bt>0 ? $('#dbWhere',m.el).value : '';
+    m.close();
+    if(bt>0){
+      if(where.startsWith('move:')){
+        const sob=ensureSobrante(where.slice(5));
+        jars.forEach(j=>{ if(j.balance>0) applyMove(j.id,[{id:sob.id,amt:j.balance}]); });
+      }else{
+        jars.forEach(j=>{ if(j.balance>0) applyWithdraw(j.id,j.balance,`Banco «${b.name}» eliminado`); });
+      }
+    }
+    S.jars=S.jars.filter(j=>!ids.has(j.id));
+    S.goals=S.goals.filter(g=>!(ids.has(g.jarId)||g.jarId==='bank:'+b.id));
+    S.expenses=S.expenses.filter(x=>!ids.has(x.jarId));
+    S.incomes=S.incomes.filter(i=>i.bankId!==b.id);
+    S.banks=S.banks.filter(x=>x.id!==b.id);
+    save(); render(); toast('Banco eliminado.');
+  };
+}
+
+/* ---------- Alcancías: eliminar y crear ---------- */
 function askDeleteJar(j){
-  const has = j.balance>0;
+  const has = j.balance>0, bank = bankById(j.bankId);
   const gl=S.goals.filter(g=>g.jarId===j.id).length, ex=S.expenses.filter(e=>e.jarId===j.id).length;
   const extra=(gl||ex)?`<br><br>También se eliminarán ${[gl?`${gl} ${gl===1?'meta':'metas'}`:'',ex?`${ex} ${ex===1?'gasto fijo':'gastos fijos'}`:''].filter(Boolean).join(' y ')} ligados a ella.`:'';
   confirmDelete({
     title:`Eliminar «${esc(j.name)}»`,
-    text:(has ? `Esta alcancía tiene <b>${fmt(j.balance)}</b>. Al eliminarla, ese dinero se traspasará a «Sobrante» para que no se pierda.` : 'Esta alcancía está vacía y se eliminará por completo.')+extra,
+    text:(has ? `Esta alcancía tiene <b>${fmt(j.balance)}</b>. Al eliminarla, ese dinero se traspasará a «Sobrante»${S.banks.length>1&&bank?` de «${esc(bank.name)}»`:''} para que no se pierda.` : 'Esta alcancía está vacía y se eliminará por completo.')+extra,
     onConfirm:()=>{
-      if(has){ const sob=ensureSobrante(); applyMove(j.id,[{id:sob.id,amt:j.balance}]); }
+      if(has){ const sob=ensureSobrante(j.bankId); applyMove(j.id,[{id:sob.id,amt:j.balance}]); }
       S.jars = S.jars.filter(x=>x.id!==j.id); S.goals=S.goals.filter(g=>g.jarId!==j.id); S.expenses=S.expenses.filter(e=>e.jarId!==j.id); save(); render(); toast('Alcancía eliminada.');
     }
   });
 }
-$('#btnAddJar').onclick = openAddJar;
-function openAddJar(){
-  const rest = Math.max(0,r(100-sumPct()));
+function openAddJar(bankId){
+  const bank=bankById(bankId); if(!bank) return;
+  const sp=sumPct(bankId), rest=Math.max(0,rd2(100-sp));
   const m = openModal(`
-    <div class="mhead"><h3>Nueva alcancía</h3><button class="icon-btn" id="xAdd" aria-label="Cerrar">✕</button></div>
+    <div class="mhead"><h3>Nueva alcancía${S.banks.length>1?` en «${esc(bank.name)}»`:''}</h3><button class="icon-btn" id="xAdd" aria-label="Cerrar">✕</button></div>
     <div class="body">
       <label class="field"><span>Nombre</span><div style="display:flex;gap:10px;align-items:center"><span class="jar-ico" id="njIco" style="--jc:var(--accent);display:none"></span><input id="njName" maxlength="28" placeholder="Ej.: Ahorro, Inversión, Para mí…"></div></label>
       <label class="field"><span>Porcentaje del ingreso que recibirá</span><div class="money"><input id="njPct" type="number" min="0" max="100" step="0.01" value="${rest}" style="padding-right:34px"><i style="left:auto;right:13px">%</i></div></label>
-      <div class="muted" style="font-size:13px">Hoy tus alcancías suman ${fmtPct(sumPct())} %.</div>
+      <div class="muted" style="font-size:13px">Las alcancías ${S.banks.length>1?`de «${esc(bank.name)}» `:''}suman hoy ${fmtPct(sp)} %. Los porcentajes se calculan por banco.</div>
     </div>
     <div class="foot"><button class="btn ghost" id="njNo">Cancelar</button><button class="btn primary" id="njOk">Crear alcancía</button></div>`);
   const nm=$('#njName',m.el), ic=$('#njIco',m.el);
@@ -1000,10 +1196,10 @@ function openAddJar(){
   const ok=()=>{
     const name=nm.value.trim(); if(!name){ nm.focus(); toast('Ponle un nombre a la alcancía.'); return; }
     let pct=parseFloat(String($('#njPct',m.el).value).replace(',','.')); if(isNaN(pct)) pct=0;
-    pct=Math.max(0,Math.min(100,Math.round(pct*100)/100));
+    pct=Math.max(0,Math.min(100,rd2(pct)));
     const color=PALETTE[S.jarCount%PALETTE.length]; S.jarCount++;
-    const jar={id:uid(),name,pct,balance:0,color};
-    const sobIdx=S.jars.findIndex(x=>x.special);
+    const jar={id:uid(),name,pct,balance:0,color,bankId};
+    const sobIdx=S.jars.findIndex(x=>x.special&&x.bankId===bankId);
     if(sobIdx>=0) S.jars.splice(sobIdx,0,jar); else S.jars.push(jar);
     m.close(); save(); render(); toast('Alcancía creada.');
   };
@@ -1011,17 +1207,72 @@ function openAddJar(){
   m.el.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); ok(); } });
 }
 
-/* ---------- Distribuir sobrante ---------- */
+/* ---------- Editar el saldo de una alcancía directamente ---------- */
+function openAdjust(j,start){
+  const bank=bankById(j.bankId); let am=start; fillCatList();
+  const m = openModal(`
+    <div class="mhead"><h3>Ajustar «${esc(j.name)}»</h3><button class="icon-btn" id="xAj" aria-label="Cerrar">✕</button></div>
+    <p style="margin:6px 0 0">${S.banks.length>1&&bank?esc(bank.name)+' · ':''}Saldo actual: <b>${fmt(j.balance)}</b></p>
+    <div class="body">
+      <div class="seg three" id="ajSeg"><span class="seg-thumb"></span><button type="button" data-m="add">Meter</button><button type="button" data-m="sub">Sacar</button><button type="button" data-m="set">Fijar saldo</button></div>
+      <label class="field"><span id="ajLbl">Monto</span><div class="money"><i>${esc(sym())}</i><input id="ajAmt" class="money-in" inputmode="decimal" placeholder="0"></div></label>
+      <label class="field" id="ajCatWrap"><span>Categoría <em>(opcional)</em></span><input id="ajCat" list="catList" maxlength="24" autocomplete="off" placeholder="Ej.: Comida, Transporte…"></label>
+      <label class="field"><span>Concepto <em>(opcional)</em></span><input id="ajNote" maxlength="60" placeholder="Ej.: transferencia recibida, compra…"></label>
+      <div class="muted" id="ajHint" style="font-size:13.5px;min-height:20px"></div>
+    </div>
+    <div class="foot"><button class="btn ghost" id="ajNo">Cancelar</button><button class="btn primary" id="ajOk">Guardar</button></div>`);
+  const seg=$('#ajSeg',m.el), amtEl=$('#ajAmt',m.el);
+  const hint=()=>{
+    const raw=amtEl.value.trim(), a=parseAmt(raw); let t='';
+    if(am==='add') t=a>0?`Quedarán <b>${fmt(r(j.balance+a))}</b> en «${esc(j.name)}» y el total sube ${fmt(a)}.`:'El dinero entra directo a esta alcancía, sin repartirse por porcentajes.';
+    else if(am==='sub') t=a>j.balance?`<span class="neg">Supera el saldo disponible (${fmt(j.balance)}).</span>`:a>0?`Quedarán <b>${fmt(r(j.balance-a))}</b> en «${esc(j.name)}» y el total baja ${fmt(a)}.`:'El dinero sale de esta alcancía y el total baja.';
+    else t=raw===''?'Úsalo para igualar el saldo con lo que realmente tienes en el banco.':(a===j.balance?'Ese ya es el saldo actual.':`Diferencia: <b class="${a>j.balance?'pos':'neg'}">${a>j.balance?'+ ':'− '}${fmt(Math.abs(r(a-j.balance)))}</b> (se registra como ajuste).`);
+    $('#ajHint',m.el).innerHTML=t;
+  };
+  const setMode=x=>{
+    am=x; const idx={add:0,sub:1,set:2}[x];
+    $$('button',seg).forEach(b=>b.classList.toggle('on',b.dataset.m===x));
+    $('.seg-thumb',seg).style.transform=`translateX(${idx*100}%)`;
+    $('#ajLbl',m.el).textContent = x==='add'?'Monto a meter':x==='sub'?'Monto a sacar':'Saldo real que tiene ahora';
+    $('#ajCatWrap',m.el).hidden = x!=='sub';
+    $('#ajOk',m.el).className = 'btn '+(x==='sub'?'danger':'primary');
+    hint();
+  };
+  seg.addEventListener('click',e=>{ const b=e.target.closest('button'); if(b) setMode(b.dataset.m); });
+  amtEl.addEventListener('input',hint);
+  setMode(am); amtEl.focus();
+  const ok=()=>{
+    const raw=amtEl.value.trim(), a=parseAmt(raw), note=$('#ajNote',m.el).value.trim(), cat=$('#ajCat',m.el).value.trim();
+    if(am==='add'){
+      if(!(a>0)){ toast('Ingresa un monto mayor a cero.'); return; }
+      directAdd(j,a,note); m.close(); save(); render(); toast(`Se agregaron ${fmt(a)} a «${j.name}».`);
+    }else if(am==='sub'){
+      if(!(a>0)){ toast('Ingresa un monto mayor a cero.'); return; }
+      if(a>j.balance){ toast(`«${j.name}» solo tiene ${fmt(j.balance)}.`); return; }
+      applyWithdraw(j.id,a,note,cat); m.close(); save(); render(); toast(`Se sacaron ${fmt(a)} de «${j.name}».`);
+    }else{
+      if(raw===''){ toast('Escribe el saldo que tiene ahora.'); return; }
+      const diff=r(a-j.balance);
+      if(diff===0){ toast('Ese ya es el saldo actual.'); return; }
+      if(diff>0) directAdd(j,diff,note||'Ajuste de saldo'); else applyWithdraw(j.id,-diff,note||'Ajuste de saldo','');
+      m.close(); save(); render(); toast(`Saldo de «${j.name}» ajustado a ${fmt(a)}.`);
+    }
+  };
+  $('#ajOk',m.el).onclick=ok; $('#ajNo',m.el).onclick=()=>m.close(); $('#xAj',m.el).onclick=()=>m.close();
+  m.el.addEventListener('keydown',e=>{ if(e.key==='Enter'&&e.target.tagName!=='SELECT'){ e.preventDefault(); ok(); } });
+}
+
+/* ---------- Distribuir sobrante (dentro de su banco) ---------- */
 function openDistribute(sob){
-  const targets = regular();
-  if(!targets.length){ toast('Primero crea alguna alcancía para repartir el sobrante.'); return; }
+  const targets = regular(sob.bankId);
+  if(!targets.length){ toast('Primero crea alguna alcancía en este banco para repartir el sobrante.'); return; }
   const m = openModal(`
     <div class="mhead"><h3>Distribuir el sobrante</h3><button class="icon-btn" id="xDis" aria-label="Cerrar">✕</button></div>
-    <p>Disponible en «Sobrante»: <b>${fmt(sob.balance)}</b>. Indica cuánto enviar a cada alcancía.</p>
+    <p>Disponible en «Sobrante»${S.banks.length>1&&bankById(sob.bankId)?` de «${esc(bankById(sob.bankId).name)}»`:''}: <b>${fmt(sob.balance)}</b>. Indica cuánto enviar a cada alcancía.</p>
     <div class="body">
       ${targets.map(j=>`<div class="dist-row"><span class="n"><i style="background:${j.color}"></i><span style="overflow:hidden;text-overflow:ellipsis">${esc(j.name)}</span></span><input class="money-in dis-in" data-id="${j.id}" inputmode="decimal" placeholder="0"></div>`).join('')}
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
-        <button class="btn sm" id="disAuto" ${sumPct()>0?'':'disabled'}>Repartir según porcentajes</button>
+        <button class="btn sm" id="disAuto" ${sumPct(sob.bankId)>0?'':'disabled'}>Repartir según porcentajes</button>
         <span class="muted" id="disLeft"></span>
       </div>
     </div>
@@ -1031,7 +1282,7 @@ function openDistribute(sob){
   const upd=()=>{ const s=sums(), left=r(sob.balance-s); $('#disLeft',m.el).innerHTML = left<0?`<span class="neg">Te pasas por ${fmt(-left)}</span>`:`Por repartir: <b>${fmt(left)}</b>`; $('#disOk',m.el).disabled=!(s>0&&left>=0); };
   ins.forEach(i=>i.addEventListener('input',upd)); upd();
   $('#disAuto',m.el).onclick=()=>{
-    const sp=sumPct(); if(!sp) return;
+    const sp=sumPct(sob.bankId); if(!sp) return;
     const sh=targets.map(j=>({j,a:fl(sob.balance*j.pct/sp)})); const used=r(sh.reduce((a,s)=>a+s.a,0)); const dust=r(sob.balance-used);
     if(dust>0){ const big=sh.reduce((a,b)=>b.j.pct>a.j.pct?b:a); big.a=r(big.a+dust); }
     ins.forEach(i=>{ const s=sh.find(x=>x.j.id===i.dataset.id); i.value=s&&s.a>0? (D()===0? s.a.toLocaleString('es-CL') : String(s.a).replace('.',',')) : ''; });
@@ -1044,14 +1295,15 @@ function openDistribute(sob){
   $('#disNo',m.el).onclick=()=>m.close(); $('#xDis',m.el).onclick=()=>m.close();
 }
 
-/* ---------- Mover dinero entre alcancías ---------- */
+/* ---------- Mover dinero entre alcancías (también entre bancos) ---------- */
 $('#btnMove').onclick=()=>{
   if(S.jars.length<2) return;
-  const opts = sel => S.jars.map(j=>`<option value="${j.id}" ${j.id===sel?'selected':''}>${esc(j.name)} — ${fmt(j.balance)}</option>`).join('');
+  const opts = sel => S.jars.map(j=>`<option value="${j.id}" ${j.id===sel?'selected':''}>${esc(jarLabel(j))} — ${fmt(j.balance)}</option>`).join('');
   const first = S.jars.find(j=>j.balance>0)||S.jars[0];
   const second = S.jars.find(j=>j.id!==first.id);
   const m = openModal(`
     <div class="mhead"><h3>Mover dinero</h3><button class="icon-btn" id="xMv" aria-label="Cerrar">✕</button></div>
+    <p style="margin:6px 0 0">Sirve para pasar dinero de una alcancía a otra, incluso de un banco a otro.</p>
     <div class="body">
       <label class="field"><span>Desde</span><select id="mvFrom" style="width:100%">${opts(first.id)}</select></label>
       <label class="field"><span>Hacia</span><select id="mvTo" style="width:100%">${opts(second.id)}</select></label>
@@ -1067,7 +1319,7 @@ $('#btnMove').onclick=()=>{
   const ok=()=>{
     const a=parseAmt(amt.value), j=jarById(from.value);
     if(!(a>0)){ toast('Ingresa un monto mayor a cero.'); return; }
-    if(a>j.balance){ toast(`«${j.name}» solo tiene ${fmt(j.balance)}.`); return; }
+    if(a>j.balance){ toast(`«${jarLabel(j)}» solo tiene ${fmt(j.balance)}.`); return; }
     if(applyMove(from.value,[{id:to.value,amt:a}])){ m.close(); save(); render(); toast('Dinero movido.'); }
   };
   $('#mvOk',m.el).onclick=ok; $('#mvNo',m.el).onclick=()=>m.close(); $('#xMv',m.el).onclick=()=>m.close();
@@ -1078,13 +1330,13 @@ $('#btnMove').onclick=()=>{
 function renderIncomes(){
   const box=$('#incomes');
   if(!S.incomes.length){ box.innerHTML=`<div class="empty">Aún no tienes ingresos fijos. Agrega, por ejemplo, un trabajo con pago semanal, quincenal o mensual.</div>`; return; }
-  const over = sumPct()>100.0001;
+  const over = i => sumPct(i.bankId)>100.0001;
   box.innerHTML = S.incomes.map(i=>`
     <div class="row" data-id="${i.id}">
       <div class="badge move">↻</div>
       <div class="main">
         <div class="t">${esc(i.name)}</div>
-        <div class="s">${fmt(i.amount)} · ${FREQ[i.freq].toLowerCase()} · ${!i.active?'en pausa':over?'en espera (porcentajes sobre 100 %)':'próximo pago: '+fdate(i.next)}</div>
+        <div class="s">${fmt(i.amount)} · ${FREQ[i.freq].toLowerCase()} · ${S.banks.length>1&&bankById(i.bankId)?'a «'+esc(bankById(i.bankId).name)+'» · ':''}${!i.active?'en pausa':over(i)?'en espera (porcentajes sobre 100 %)':'próximo pago: '+fdate(i.next)}</div>
       </div>
       <label class="switch" title="${i.active?'Pausar':'Activar'}"><input type="checkbox" data-act="toggle" ${i.active?'checked':''}><span></span></label>
       <button class="icon-btn" data-act="edit" title="Editar">✎</button>
@@ -1109,11 +1361,13 @@ $('#incomes').addEventListener('change',e=>{
 $('#btnAddInc').onclick=()=>openIncome(null);
 function toDateInput(ts){ const d=new Date(ts); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
 function openIncome(inc){
+  if(!S.banks.length){ toast('Primero crea un banco para que el ingreso tenga dónde repartirse.'); return; }
   const editing=!!inc; const today=toDateInput(Date.now());
   const m=openModal(`
     <div class="mhead"><h3>${editing?'Editar ingreso fijo':'Nuevo ingreso fijo'}</h3><button class="icon-btn" id="xInc" aria-label="Cerrar">✕</button></div>
     <div class="body">
       <label class="field"><span>Nombre</span><input id="inName" maxlength="40" placeholder="Ej.: Práctica, Trabajo part-time…" value="${editing?esc(inc.name):''}"></label>
+      ${S.banks.length>1?`<label class="field"><span>Se deposita en el banco</span><select id="inBank" style="width:100%">${S.banks.map(b=>`<option value="${b.id}" ${editing&&inc.bankId===b.id?'selected':''}>${esc(b.name)}</option>`).join('')}</select></label>`:''}
       <div class="two-cols">
         <label class="field"><span>Monto</span><div class="money"><i>${esc(sym())}</i><input id="inAmt" class="money-in" inputmode="decimal" placeholder="0" value="${editing?(D()===0?inc.amount.toLocaleString('es-CL'):String(inc.amount).replace('.',',')):''}"></div></label>
         <label class="field"><span>Frecuencia</span><select id="inFreq" style="width:100%">${Object.entries(FREQ).map(([k,v])=>`<option value="${k}" ${editing&&inc.freq===k?'selected':(!editing&&k==='mensual'?'selected':'')}>${v}</option>`).join('')}</select></label>
@@ -1129,9 +1383,9 @@ function openIncome(inc){
     if(!(amt>0)){ toast('Ingresa un monto mayor a cero.'); return; }
     if(!dv){ toast('Elige una fecha.'); return; }
     const [y,mo,d]=dv.split('-').map(Number); const next=new Date(y,mo-1,d,8,0).getTime();
-    const freq=$('#inFreq',m.el).value;
-    if(editing){ const dateChanged = toDateInput(inc.next)!==dv; Object.assign(inc,{name,amount:amt,freq}); if(dateChanged||true){ inc.next=next; inc.anchorDay=d; } }
-    else S.incomes.push({id:uid(),name,amount:amt,freq,next,anchorDay:d,active:true});
+    const freq=$('#inFreq',m.el).value; const bankId=$('#inBank',m.el)?$('#inBank',m.el).value:S.banks[0].id;
+    if(editing){ const dateChanged = toDateInput(inc.next)!==dv; Object.assign(inc,{name,amount:amt,freq,bankId}); if(dateChanged||true){ inc.next=next; inc.anchorDay=d; } }
+    else S.incomes.push({id:uid(),name,amount:amt,freq,next,anchorDay:d,active:true,bankId});
     m.close(); save(); render(); runIncomes(false); toast(editing?'Ingreso fijo actualizado.':'Ingreso fijo agregado.');
   };
   $('#inOk',m.el).onclick=ok; $('#inNo',m.el).onclick=()=>m.close(); $('#xInc',m.el).onclick=()=>m.close();
@@ -1150,10 +1404,10 @@ function renderMovs(){
     if(m.type==='in'){
       badge='<div class="badge in">↑</div>'; cls='pos'; amt='+ '+fmt(m.amount);
       title=esc(m.note||'Ingreso')+(m.auto?'<span class="tag">Automático</span>':'');
-      sub=fdate(m.ts,!m.auto)+(m.split&&m.split.length?' · '+m.split.map(s=>`${esc(s.name)} ${fmt(s.amt)}`).join(', '):'');
+      sub=fdate(m.ts,!m.auto)+(m.direct?' · directo':'')+(m.bankName&&S.banks.length>1?' · '+esc(m.bankName):'')+(m.split&&m.split.length?' · '+m.split.map(s=>`${esc(s.name)} ${fmt(s.amt)}`).join(', '):'');
     }else if(m.type==='out'){
       badge='<div class="badge out">↓</div>'; cls='neg'; amt='− '+fmt(m.amount);
-      title='Retiro de '+esc(m.jarName)+(m.auto?'<span class="tag">Automático</span>':'')+(m.cat?'<span class="tag">'+esc(m.cat)+'</span>':''); sub=fdate(m.ts,!m.auto)+(m.note?' · '+esc(m.note):'');
+      title='Retiro de '+esc((m.bankName&&S.banks.length>1?m.bankName+' · ':'')+m.jarName)+(m.auto?'<span class="tag">Automático</span>':'')+(m.cat?'<span class="tag">'+esc(m.cat)+'</span>':''); sub=fdate(m.ts,!m.auto)+(m.note?' · '+esc(m.note):'');
     }else{
       badge='<div class="badge move">⇄</div>'; cls='muted'; amt=fmt(m.amount);
       const names=(m.split||[]).map(s=>esc(s.name)).join(', ');
@@ -1269,7 +1523,8 @@ function renderStats(){
   // reparto actual
   const t=total(); const js=S.jars.filter(j=>j.balance>0);
   $('#stackBox').innerHTML = t>0
-    ? `<div class="stack">${js.map(j=>`<i style="flex:${j.balance};background:${j.color}" title="${esc(j.name)}"></i>`).join('')}</div><div class="legend-list">${js.map(j=>`<div><i style="background:${j.color}"></i>${esc(j.name)}<b>${fmtPct(j.balance/t*100)} %</b></div>`).join('')}</div>`
+    ? (S.banks.length>1?`<div class="muted" style="font-size:12.5px;margin-bottom:6px">Por banco</div><div class="stack">${S.banks.filter(b=>bankTotal(b.id)>0).map(b=>`<i style="flex:${bankTotal(b.id)};background:${b.color}" title="${esc(b.name)}"></i>`).join('')}</div><div class="legend-list" style="margin-bottom:16px">${S.banks.filter(b=>bankTotal(b.id)>0).map(b=>`<div><i style="background:${b.color}"></i>${esc(b.name)}<b>${fmt(bankTotal(b.id))} · ${fmtPct(bankTotal(b.id)/t*100)} %</b></div>`).join('')}</div><div class="muted" style="font-size:12.5px;margin-bottom:6px">Por alcancía</div>`:'')
+      +`<div class="stack">${js.map(j=>`<i style="flex:${j.balance};background:${j.color}" title="${esc(jarLabel(j))}"></i>`).join('')}</div><div class="legend-list">${js.map(j=>`<div><i style="background:${j.color}"></i>${esc(jarLabel(j))}<b>${fmtPct(j.balance/t*100)} %</b></div>`).join('')}</div>`
     : `<div class="muted" style="font-size:13.5px">Cuando tengas dinero en tus alcancías verás aquí cómo se reparte.</div>`;
   renderCats(h.domain[0]);
   renderSim();
@@ -1361,7 +1616,7 @@ function renderGoals(){
   const box=$('#goals');
   if(!S.goals.length){ box.innerHTML=`<div class="card empty" style="grid-column:1/-1">Crea una meta (un viaje, un equipo, un fondo de emergencia) y mira cuánto te falta para llegar.</div>`; return; }
   box.innerHTML=S.goals.map(g=>{
-    const gi=goalInfo(g); const color=gi.jar?gi.jar.color:'var(--btn)'; const ico=iconFor(g.name);
+    const gi=goalInfo(g); const color=gi.jar?gi.jar.color:gi.bank?gi.bank.color:'var(--btn)'; const ico=iconFor(g.name);
     let meta;
     if(gi.done) meta=`<span><b style="color:var(--pos)">¡Meta alcanzada!</b></span>`;
     else{
@@ -1379,7 +1634,7 @@ function renderGoals(){
         }
       }
     }
-    meta+=`<span>${gi.jar?'Avance según «'+esc(gi.jar.name)+'»':'Avance según el total de tus alcancías'}</span>`;
+    meta+=`<span>${gi.jar?'Avance según «'+esc(jarLabel(gi.jar))+'»':gi.bank?'Avance según el total de «'+esc(gi.bank.name)+'»':'Avance según el total de tus alcancías'}</span>`;
     return `<article class="card goal ${gi.done?'done':''}" data-id="${g.id}" style="--gc:${color};--jc:${color}">
       <div class="goal-top">${ico?`<span class="jar-ico">${ico}</span>`:''}<div class="goal-name" title="${esc(g.name)}">${esc(g.name)}</div>
         <button class="icon-btn" data-act="edit" title="Editar meta">✎</button><button class="icon-btn del" data-act="del" title="Eliminar meta">✕</button></div>
@@ -1401,13 +1656,13 @@ $('#goals').addEventListener('click',e=>{
 $('#btnAddGoal').onclick=()=>openGoal(null);
 function openGoal(g){
   const editing=!!g; const today=toDateInput(Date.now());
-  const opts=`<option value="total" ${editing&&g.jarId==='total'?'selected':''}>Total de todas las alcancías</option>`+S.jars.map(j=>`<option value="${j.id}" ${editing&&g.jarId===j.id?'selected':''}>${esc(j.name)}</option>`).join('');
+  const opts=`<option value="total" ${editing&&g.jarId==='total'?'selected':''}>Total de todas las alcancías</option>`+(S.banks.length>1?S.banks.map(b=>`<option value="bank:${b.id}" ${editing&&g.jarId==='bank:'+b.id?'selected':''}>Todo «${esc(b.name)}»</option>`).join(''):'')+S.jars.map(j=>`<option value="${j.id}" ${editing&&g.jarId===j.id?'selected':''}>${esc(jarLabel(j))}</option>`).join('');
   const m=openModal(`
     <div class="mhead"><h3>${editing?'Editar meta':'Nueva meta de ahorro'}</h3><button class="icon-btn" id="xGoal" aria-label="Cerrar">✕</button></div>
     <div class="body">
       <label class="field"><span>¿Qué quieres lograr?</span><input id="gName" maxlength="40" placeholder="Ej.: Viaje, Notebook, Fondo de emergencia…" value="${editing?esc(g.name):''}"></label>
       <label class="field"><span>Monto objetivo</span><div class="money"><i>${esc(sym())}</i><input id="gAmt" class="money-in" inputmode="decimal" placeholder="0" value="${editing?amtStr(g.target):''}"></div></label>
-      <label class="field"><span>¿Qué alcancía cuenta para esta meta?</span><select id="gJar" style="width:100%">${opts}</select></label>
+      <label class="field"><span>¿Qué cuenta para esta meta?</span><select id="gJar" style="width:100%">${opts}</select></label>
       <label class="field"><span>Fecha objetivo <em>(opcional)</em></span><input id="gDate" type="date" min="${today}" value="${editing&&g.date?toDateInput(g.date):''}"></label>
     </div>
     <div class="foot"><button class="btn ghost" id="gNo">Cancelar</button><button class="btn primary" id="gOk">${editing?'Guardar cambios':'Crear meta'}</button></div>`);
@@ -1437,12 +1692,12 @@ function renderExpenses(){
     let status;
     if(!x.active) status='en pausa';
     else if(!jar) status='elige una alcancía para que pueda cobrarse';
-    else if(x.next<=now && jar.balance<x.amount) status=`en espera: «${esc(jar.name)}» no tiene saldo suficiente`;
+    else if(x.next<=now && jar.balance<x.amount) status=`en espera: «${esc(jarLabel(jar))}» no tiene saldo suficiente`;
     else status='próximo cobro: '+fdate(x.next);
     return `<div class="row" data-id="${x.id}">
       <div class="badge out">↻</div>
       <div class="main"><div class="t">${esc(x.name)}${x.cat?`<span class="tag">${esc(x.cat)}</span>`:''}</div>
-        <div class="s">${fmt(x.amount)} · ${FREQ[x.freq].toLowerCase()}${jar?' · de «'+esc(jar.name)+'»':''} · ${status}</div></div>
+        <div class="s">${fmt(x.amount)} · ${FREQ[x.freq].toLowerCase()}${jar?' · de «'+esc(jarLabel(jar))+'»':''} · ${status}</div></div>
       <label class="switch" title="${x.active?'Pausar':'Activar'}"><input type="checkbox" data-act="toggle" ${x.active?'checked':''}><span></span></label>
       <button class="icon-btn" data-act="edit" title="Editar">✎</button>
       <button class="icon-btn del" data-act="del" title="Eliminar">✕</button>
@@ -1476,7 +1731,7 @@ function openExpense(x){
         <label class="field"><span>Monto</span><div class="money"><i>${esc(sym())}</i><input id="exAmt" class="money-in" inputmode="decimal" placeholder="0" value="${editing?amtStr(x.amount):''}"></div></label>
         <label class="field"><span>Frecuencia</span><select id="exFreq" style="width:100%">${Object.entries(FREQ).map(([k,v])=>`<option value="${k}" ${(editing?x.freq:'mensual')===k?'selected':''}>${v}</option>`).join('')}</select></label>
       </div>
-      <label class="field"><span>Se descuenta de la alcancía</span><select id="exJar" style="width:100%">${S.jars.map(j=>`<option value="${j.id}" ${j.id===defJar?'selected':''}>${esc(j.name)}</option>`).join('')}</select></label>
+      <label class="field"><span>Se descuenta de la alcancía</span><select id="exJar" style="width:100%">${S.jars.map(j=>`<option value="${j.id}" ${j.id===defJar?'selected':''}>${esc(jarLabel(j))}</option>`).join('')}</select></label>
       <label class="field"><span>Categoría <em>(opcional)</em></span><input id="exCat" list="catList" maxlength="24" autocomplete="off" placeholder="Ej.: Arriendo / Hogar" value="${editing?esc(x.cat||''):''}"></label>
       <label class="field"><span>${editing?'Próximo cobro':'Primer cobro'}</span><input id="exDate" type="date" ${editing?'':`min="${today}"`} value="${editing?toDateInput(x.next):today}"></label>
       <div class="muted" style="font-size:13px">Si la alcancía no tiene saldo suficiente el día del cobro, el gasto queda en espera y se registra apenas haya fondos. Los cobros se aplican cuando la app está abierta.</div>
@@ -1559,14 +1814,14 @@ function exportCSV(){
   const num=n=>D()===0?String(Math.round(n)):String(n).replace('.',',');
   const txt=c=>{ c=String(c==null?'':c); return /^[=+\-@\t\r]/.test(c)?"'"+c:c; };
   const q=c=>{ c=String(c); return /[;"\n\r]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c; };
-  const rows=[['Fecha','Hora','Tipo','Monto','Alcancía o detalle','Categoría','Concepto','Origen']];
+  const rows=[['Fecha','Hora','Tipo','Monto','Alcancía o detalle','Categoría','Concepto','Origen','Banco']];
   [...S.movs].sort((a,b)=>a.ts-b.ts).forEach(m=>{
     const hora=new Date(m.ts).toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'});
     let tipo,monto,det,cat='';
     if(m.type==='in'){ tipo='Ingreso'; monto=num(m.amount); det=(m.split||[]).map(s=>`${s.name}: ${num(s.amt)}`).join(' | '); }
     else if(m.type==='out'){ tipo='Retiro'; monto=num(-m.amount); det=m.jarName||''; cat=m.cat||''; }
     else{ tipo='Traspaso'; monto=num(m.amount); det=`${m.fromName} → `+(m.split||[]).map(s=>`${s.name}: ${num(s.amt)}`).join(' | '); }
-    rows.push([toDateInput(m.ts),hora,tipo,monto,txt(det),txt(cat),txt(m.note||''),m.auto?'Automático':'Manual']);
+    rows.push([toDateInput(m.ts),hora,tipo,monto,txt(det),txt(cat),txt(m.note||''),m.auto?'Automático':'Manual',txt(m.bankName||'')]);
   });
   const csv='﻿'+rows.map(row=>row.map(q).join(';')).join('\r\n');
   downloadBlob(new Blob([csv],{type:'text/csv;charset=utf-8'}),`finanzas-movimientos-${toDateInput(Date.now())}.csv`);
@@ -1583,7 +1838,7 @@ function doExportJSON(){
 function replaceData(o,label){
   pushSnap(label,false);
   const d=defaults(); S=Object.assign(d,o,{sim:Object.assign(d.sim,o.sim||{})});
-  ['jars','movs','incomes','expenses','goals'].forEach(k=>{ if(!Array.isArray(S[k])) S[k]=[]; });
+  migrate();
   save(); $('#curSel').value=S.currency; applyTheme(); applySide(); bindSim(); shownTotal=0; render(); toast('Datos restaurados.');
 }
 function startImport(f){
@@ -1673,6 +1928,7 @@ function setupPWA(){
    ========================================================= */
 mkFmt(); applyTheme(); applySide(); bindSim();
 $('#curSel').value=S.currency;
+migrate();
 if(S.jars.length||S.movs.length) pushSnap('Inicio del día',true);
 try{ if(navigator.storage&&navigator.storage.persist) navigator.storage.persist(); }catch(_){}
 save();

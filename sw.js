@@ -1,7 +1,7 @@
 /* Service worker de Mis Finanzas: deja la app disponible sin internet.
    La versión cambia en cada entrega; así el navegador detecta la actualización
    y la app muestra el aviso "Hay una versión nueva disponible". */
-const VERSION = '20261015-193229';
+const VERSION = '20261031-133129';
 const CACHE = 'mis-finanzas-' + VERSION;
 const ASSETS = ['./', './index.html', './manifest.json', './icon.svg', './icon-192.png', './icon-512.png', './icon-maskable-512.png', './apple-touch-icon.png'];
 
